@@ -11,7 +11,9 @@ SECRET_KEY = 'WIRD_AUF_SERVER_ERSETZT'
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'schichtplan.bilal-alac.de', 
+    'vardiy.de',
+    'www.vardiy.de',
+    'schichtplaner.vardiy.de',
     'bilal-alac.de',  # Fallback für Migration
     'www.bilal-alac.de', 
     '91.99.205.96', 
@@ -126,6 +128,9 @@ REST_FRAMEWORK = {
 
 # CORS Settings
 CORS_ALLOWED_ORIGINS = [
+    "https://schichtplaner.vardiy.de",  # Angular-App (Subdomain)
+    "https://vardiy.de",
+    "https://www.vardiy.de",
     "https://bilal-alac.de",
     "https://www.bilal-alac.de",
 ]
@@ -133,6 +138,9 @@ CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Settings
 CSRF_TRUSTED_ORIGINS = [
+    "https://schichtplaner.vardiy.de",
+    "https://vardiy.de",
+    "https://www.vardiy.de",
     "https://bilal-alac.de",
     "https://www.bilal-alac.de",
 ]
