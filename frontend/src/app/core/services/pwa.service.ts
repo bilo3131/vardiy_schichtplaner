@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
-import { filter, map } from 'rxjs/operators';
+import { filter } from 'rxjs/operators';
 import { LoggerService } from './logger.service';
 
 @Injectable({
@@ -28,10 +28,7 @@ export class PwaService {
   checkForUpdates(): void {
     if (!this.swUpdate.isEnabled) return;
     this.swUpdate.versionUpdates
-      .pipe(
-        filter((evt): evt is VersionReadyEvent => evt.type === 'VERSION_READY'),
-        map(evt => ({ current: evt.currentVersion, available: evt.latestVersion }))
-      )
+      .pipe(filter((evt): evt is VersionReadyEvent => evt.type === 'VERSION_READY'))
       .subscribe(() => {
         if (confirm('Neue Version verfügbar. Jetzt aktualisieren?')) {
           window.location.reload();

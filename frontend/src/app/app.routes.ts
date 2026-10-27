@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
-import { authGuard, managerGuard, nonEmployeeGuard } from './core/guards/auth.guard';
+import { authGuard } from './core/guards/auth.guard';
 import { roleGuardFactory } from './core/guards/role.guard';
+import { ADMIN_ROLES, ALL_ROLES, MANAGER_ROLES, SUPERVISOR_ROLES } from './core/constants/roles.constants';
 
 export const routes: Routes = [
   {
@@ -29,47 +30,47 @@ export const routes: Routes = [
       {
         path: 'shifts',
         loadChildren: () => import('./features/shifts/shifts.routes').then(m => m.SHIFTS_ROUTES),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee'])]
+        canActivate: [roleGuardFactory(ALL_ROLES)]
       },
       {
         path: 'calendar',
         loadComponent: () => import('./features/calendar/calendar-main/calendar.component').then(m => m.CalendarComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee'])]
+        canActivate: [roleGuardFactory(ALL_ROLES)]
       },
       {
         path: 'employees',
         loadChildren: () => import('./features/employees/employees.routes').then(m => m.EMPLOYEES_ROUTES),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager', 'team_leader', 'group_leader'])]
+        canActivate: [roleGuardFactory(SUPERVISOR_ROLES)]
       },
       {
         path: 'shift-types',
         loadComponent: () => import('./features/shift-types/shift-type-list/shift-type-list.component').then(m => m.ShiftTypeListComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager'])]
+        canActivate: [roleGuardFactory(MANAGER_ROLES)]
       },
       {
         path: 'qualifications',
         loadComponent: () => import('./features/qualifications/qualification-list/qualification-list.component').then(m => m.QualificationListComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager', 'team_leader', 'group_leader'])]
+        canActivate: [roleGuardFactory(SUPERVISOR_ROLES)]
       },
       {
         path: 'departments',
         loadComponent: () => import('./features/departments/department-list/department-list.component').then(m => m.DepartmentListComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr'])]
+        canActivate: [roleGuardFactory(ADMIN_ROLES)]
       },
       {
         path: 'vacations',
         loadComponent: () => import('./features/vacations/vacation-list/vacation-list.component').then(m => m.VacationListComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee'])]
+        canActivate: [roleGuardFactory(ALL_ROLES)]
       },
       {
         path: 'absences',
         loadComponent: () => import('./features/absences/absence-list/absence-list.component').then(m => m.AbsenceListComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr', 'department_manager', 'team_leader', 'group_leader'])]
+        canActivate: [roleGuardFactory(SUPERVISOR_ROLES)]
       },
       {
         path: 'subscription',
         loadComponent: () => import('./features/subscription/subscription-management.component').then(m => m.SubscriptionManagementComponent),
-        canActivate: [roleGuardFactory(['admin', 'hr'])]
+        canActivate: [roleGuardFactory(ADMIN_ROLES)]
       },
       {
         path: 'subscription/success',

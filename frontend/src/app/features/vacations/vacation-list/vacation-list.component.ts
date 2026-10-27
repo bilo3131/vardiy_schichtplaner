@@ -8,18 +8,18 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DashboardFilterService } from '../../../core/services/dashboard-filter.service';
-import { VacationRequest, AbsenceRecord } from '../../../core/models';
+import { SnackbarService } from '../../../core/services/snackbar.service';
+import { VacationRequest } from '../../../core/models';
+import { canManageRole } from '../../../core/constants/roles.constants';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner.component';
 import { VacationApprovalDialogComponent } from '../../../shared/dialogs/vacation-approval-dialog/vacation-approval-dialog.component';
 import { VacationRequestDialogComponent } from '../../../shared/dialogs/vacation-request-dialog/vacation-request-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/dialogs/confirm-dialog/confirm-dialog.component';
 import { VacationCalendarDialogComponent } from '../../../shared/dialogs/vacation-calendar-dialog/vacation-calendar-dialog.component';
-import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
 
 @Component({
   selector: 'app-vacation-list',
@@ -33,7 +33,6 @@ import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
     MatChipsModule,
     MatBadgeModule,
     MatTooltipModule,
-    MatSnackBarModule,
     LoadingSpinnerComponent
   ],
   templateUrl: './vacation-list.component.html',
@@ -60,7 +59,7 @@ export class VacationListComponent implements OnInit, OnDestroy {
     private employeeService: EmployeeService,
     private authService: AuthService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar,
+    private snackbar: SnackbarService,
     private dashboardFilterService: DashboardFilterService
   ) {
     const user = this.authService.currentUserValue;
@@ -172,11 +171,11 @@ export class VacationListComponent implements OnInit, OnDestroy {
     this.employeeService.updateVacationRequest(id, data).subscribe({
       next: () => {
         this.loadVacationRequests();
-        this.showSuccessMessage('Urlaubsantrag erfolgreich aktualisiert');
+        this.snackbar.success('Urlaubsantrag erfolgreich aktualisiert');
       },
       error: (error) => {
         const message = this.extractErrorMessage(error, 'Fehler beim Aktualisieren des Urlaubsantrags');
-        this.showErrorMessage(message);
+        this.snackbar.error(message);
       }
     });
   }
@@ -185,11 +184,11 @@ export class VacationListComponent implements OnInit, OnDestroy {
     this.employeeService.createVacationRequest(data).subscribe({
       next: () => {
         this.loadVacationRequests();
-        this.showSuccessMessage('Urlaubsantrag erfolgreich erstellt');
+        this.snackbar.success('Urlaubsantrag erfolgreich erstellt');
       },
       error: (error) => {
         const message = this.extractErrorMessage(error, 'Fehler beim Erstellen des Urlaubsantrags');
-        this.showErrorMessage(message);
+        this.snackbar.error(message);
       }
     });
   }
@@ -211,11 +210,11 @@ export class VacationListComponent implements OnInit, OnDestroy {
         this.employeeService.approveVacationRequest(request.id).subscribe({
           next: () => {
             this.loadVacationRequests();
-            this.showSuccessMessage('Urlaubsantrag erfolgreich genehmigt');
+            this.snackbar.success('Urlaubsantrag erfolgreich genehmigt');
           },
           error: (error) => {
             const message = this.extractErrorMessage(error, 'Fehler beim Genehmigen des Urlaubsantrags');
-            this.showErrorMessage(message);
+            this.snackbar.error(message);
           }
         });
       }
@@ -235,11 +234,11 @@ export class VacationListComponent implements OnInit, OnDestroy {
         this.employeeService.rejectVacationRequest(request.id).subscribe({
           next: () => {
             this.loadVacationRequests();
-            this.showSuccessMessage('Urlaubsantrag erfolgreich abgelehnt');
+            this.snackbar.success('Urlaubsantrag erfolgreich abgelehnt');
           },
           error: (error) => {
             const message = this.extractErrorMessage(error, 'Fehler beim Ablehnen des Urlaubsantrags');
-            this.showErrorMessage(message);
+            this.snackbar.error(message);
           }
         });
       }
@@ -262,11 +261,11 @@ export class VacationListComponent implements OnInit, OnDestroy {
         this.employeeService.deleteVacationRequest(request.id).subscribe({
           next: () => {
             this.loadVacationRequests();
-            this.showSuccessMessage('Urlaubsantrag erfolgreich gelöscht');
+            this.snackbar.success('Urlaubsantrag erfolgreich gelöscht');
           },
           error: (error) => {
             const message = this.extractErrorMessage(error, 'Fehler beim Löschen des Urlaubsantrags');
-            this.showErrorMessage(message);
+            this.snackbar.error(message);
           }
         });
       }
@@ -288,89 +287,26 @@ export class VacationListComponent implements OnInit, OnDestroy {
   canApprove(request: VacationRequest): boolean {
     const user = this.authService.currentUserValue;
     if (!user || request.status !== 'pending') return false;
-    
+
     // Eigene Anträge können nicht genehmigt/abgelehnt werden
-    const isOwnRequest = user.employee_profile?.id == request.employee;
-    if (isOwnRequest) return false;
-    
-    const employeeRole = request.employee_role;
-    
-    // Admin und HR k\u00f6nnen alle genehmigen
-    if (user.role === 'admin' || user.role === 'hr') return true;
-    
-    // Abteilungsleiter k\u00f6nnen Teamleiter, Gruppenleiter, Mitarbeiter genehmigen
-    if (user.role === 'department_manager') {
-      return employeeRole === 'team_leader' || 
-             employeeRole === 'group_leader' || 
-             employeeRole === 'employee';
-    }
-    
-    // Teamleiter/Gruppenleiter k\u00f6nnen nur Mitarbeiter genehmigen
-    if (user.role === 'team_leader' || user.role === 'group_leader') {
-      return employeeRole === 'employee';
-    }
-    
-    return false;
+    if (user.employee_profile?.id == request.employee) return false;
+
+    return canManageRole(user.role, request.employee_role);
   }
 
+  /** Own requests can be edited/deleted while pending; others depending on the requester's role. */
   canEdit(request: VacationRequest): boolean {
     const user = this.authService.currentUserValue;
     if (!user) return false;
-    
-    const isOwnRequest = user.employee_profile?.id == request.employee;
-    const employeeRole = request.employee_role;
-    
-    // Eigene Antr\u00e4ge: nur pending k\u00f6nnen bearbeitet werden
-    if (isOwnRequest) {
+
+    if (user.employee_profile?.id == request.employee) {
       return request.status === 'pending';
     }
-    
-    // Admin und HR k\u00f6nnen alle bearbeiten
-    if (user.role === 'admin' || user.role === 'hr') return true;
-    
-    // Abteilungsleiter k\u00f6nnen Teamleiter, Gruppenleiter, Mitarbeiter bearbeiten
-    if (user.role === 'department_manager') {
-      return employeeRole === 'team_leader' || 
-             employeeRole === 'group_leader' || 
-             employeeRole === 'employee';
-    }
-    
-    // Teamleiter/Gruppenleiter k\u00f6nnen nur Mitarbeiter bearbeiten
-    if (user.role === 'team_leader' || user.role === 'group_leader') {
-      return employeeRole === 'employee';
-    }
-    
-    return false;
+    return canManageRole(user.role, request.employee_role);
   }
 
   canDelete(request: VacationRequest): boolean {
-    const user = this.authService.currentUserValue;
-    if (!user) return false;
-    
-    const isOwnRequest = user.employee_profile?.id == request.employee;
-    const employeeRole = request.employee_role;
-    
-    // Eigene Antr\u00e4ge: nur pending k\u00f6nnen gel\u00f6scht werden
-    if (isOwnRequest) {
-      return request.status === 'pending';
-    }
-    
-    // Admin und HR k\u00f6nnen alle l\u00f6schen
-    if (user.role === 'admin' || user.role === 'hr') return true;
-    
-    // Abteilungsleiter k\u00f6nnen Teamleiter, Gruppenleiter, Mitarbeiter l\u00f6schen
-    if (user.role === 'department_manager') {
-      return employeeRole === 'team_leader' || 
-             employeeRole === 'group_leader' || 
-             employeeRole === 'employee';
-    }
-    
-    // Teamleiter/Gruppenleiter k\u00f6nnen nur Mitarbeiter l\u00f6schen
-    if (user.role === 'team_leader' || user.role === 'group_leader') {
-      return employeeRole === 'employee';
-    }
-    
-    return false;
+    return this.canEdit(request);
   }
 
   isFirstNonPendingRequest(request: VacationRequest): boolean {
@@ -386,20 +322,6 @@ export class VacationListComponent implements OnInit, OnDestroy {
     this.dialog.open(VacationCalendarDialogComponent, {
       width: '600px',
       data: { vacation }
-    });
-  }
-
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.DURATION, 
-      panelClass: ['success-snackbar'] 
-    });
-  }
-
-  private showErrorMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.ERROR_DURATION, 
-      panelClass: ['error-snackbar'] 
     });
   }
 

@@ -10,20 +10,19 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
 import { ShiftService } from '../../../core/services/shift.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DashboardFilterService } from '../../../core/services/dashboard-filter.service';
+import { SnackbarService } from '../../../core/services/snackbar.service';
 import { Shift, ShiftType, Employee, AbsenceRecord, VacationRequest } from '../../../core/models';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner.component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ShiftDialogComponent } from '../../../shared/dialogs/shift-dialog/shift-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/dialogs/confirm-dialog/confirm-dialog.component';
-import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
 import {
   formatDate as toIsoDate, formatDateDisplay as toDisplayDate,
   formatTime as trimSeconds, getWeekRange, getWeekNumber,
@@ -105,7 +104,7 @@ export class ShiftListComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private dashboardFilterService: DashboardFilterService,
     private authService: AuthService,
-    private snackBar: MatSnackBar
+    private snackbar: SnackbarService
   ) {
     this.isEmployee = this.authService.currentUserValue?.role === 'employee';
     this.setCurrentWeek();
@@ -143,35 +142,18 @@ export class ShiftListComponent implements OnInit {
     return true;
   }
 
-  getShiftsForEmployeeAndDay(employeeId: number, dateStr: string): Shift[] {
-    return this.shifts.filter(shift => 
-      shift.employee === employeeId && shift.date === dateStr
-    );
-  }
-
   getShiftsForTypeAndDay(shiftTypeId: number, dateStr: string): Shift[] {
-    return this.shifts.filter(shift => 
+    return this.shifts.filter(shift =>
       shift.shift_type === shiftTypeId && shift.date === dateStr
     );
   }
 
-  isUnderstaffed(shiftTypeId: number, dateStr: string): boolean {
-    const shiftType = this.shiftTypes.find(st => st.id === shiftTypeId);
-    if (!shiftType) return false;
-    
-    const shiftsCount = this.getShiftsForTypeAndDay(shiftTypeId, dateStr).length;
-    return shiftsCount < shiftType.min_employees;
-  }
-
   calculateUnderstaffedCells(): void {
     this.understaffedCells.clear();
-    
+
     // Prüfe jede Zelle für jede Schichtart und jeden Tag
     this.shiftTypes.forEach(shiftType => {
       this.weekDays.forEach(day => {
-        const date = new Date(day.dateStr);
-        const dayOfWeek = date.getDay();
-        
         // Prüfe ob der ShiftType für diesen Tag verfügbar ist
         if (!this.isDayAvailableForShiftType(shiftType, day.dateStr)) {
           return; // Überspringe nicht verfügbare Tage
@@ -196,19 +178,21 @@ export class ShiftListComponent implements OnInit {
   /** Maps an absence type key to its full German name (used in dialogs). */
   getAbsenceTypeName(type: string): string { return absenceTypeName(type); }
 
-  /** Opens the shift dialog pre-filled for a specific employee and date. */
-  openQuickAddDialog(employeeId: number, dateStr: string): void {
-    const dialogRef = this.dialog.open(ShiftDialogComponent, {
-      width: '600px',
-      data: {
-        shiftTypes: this.shiftTypes,
-        employees: this.employees,
-        currentWeek: getIsoWeekYear(new Date(dateStr)),
-        existingShifts: this.shifts
-      }
-    });
-    dialogRef.afterClosed().subscribe(result => {
-      if (result && Array.isArray(result)) this.createMultipleShifts(result);
+  /**
+   * Returns the display name of whatever blocks the employee on dateStr — an absence record
+   * first, then an approved vacation — or null if the employee is available.
+   */
+  private getAbsenceName(employeeId: number, dateStr: string): string | null {
+    const absence = this.isEmployeeAbsent(employeeId, dateStr);
+    if (absence) return this.getAbsenceTypeName(absence.absence_type);
+    return this.hasApprovedVacation(employeeId, dateStr) ? 'Urlaub' : null;
+  }
+
+  /** Explains in a dialog why a drag & drop action was rejected. */
+  private showDropBlockedDialog(title: string, message: string): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: { title, message, showCancel: false, confirmText: 'Schließen' }
     });
   }
 
@@ -249,52 +233,24 @@ export class ShiftListComponent implements OnInit {
         }
       }
       
-      // Prüfe ob Mitarbeiter an diesem Tag abwesend ist
-      if (shift.employee) {
-        const absence = this.isEmployeeAbsent(shift.employee, dateStr);
-        if (absence) {
-          const employeeName = shift.employee_details?.full_name || 'Mitarbeiter';
-          this.dialog.open(ConfirmDialogComponent, {
-            width: '400px',
-            data: {
-              title: 'Mitarbeiter ist abwesend',
-              message: `${employeeName} hat am ${this.formatDateDisplay(new Date(dateStr))} eine Abwesenheit (${this.getAbsenceTypeName(absence.absence_type)}). Schicht kann nicht verschoben werden.`,
-              showCancel: false,
-              confirmText: 'Schließen'
-            }
-          });
-          return;
-        }
-        
-        // Prüfe ob Mitarbeiter genehmigten Urlaub hat
-        const vacation = this.hasApprovedVacation(shift.employee, dateStr);
-        if (vacation) {
-          const employeeName = shift.employee_details?.full_name || 'Mitarbeiter';
-          this.dialog.open(ConfirmDialogComponent, {
-            width: '400px',
-            data: {
-              title: 'Mitarbeiter ist abwesend',
-              message: `${employeeName} hat am ${this.formatDateDisplay(new Date(dateStr))} eine Abwesenheit (Urlaub). Schicht kann nicht verschoben werden.`,
-              showCancel: false,
-              confirmText: 'Schließen'
-            }
-          });
-          return;
-        }
+      // Prüfe ob Mitarbeiter an diesem Tag abwesend ist (Abwesenheit oder genehmigter Urlaub)
+      const absenceName = shift.employee ? this.getAbsenceName(shift.employee, dateStr) : null;
+      if (absenceName) {
+        const employeeName = shift.employee_details?.full_name || 'Mitarbeiter';
+        this.showDropBlockedDialog(
+          'Mitarbeiter ist abwesend',
+          `${employeeName} hat am ${this.formatDateDisplay(new Date(dateStr))} eine Abwesenheit (${absenceName}). Schicht kann nicht verschoben werden.`
+        );
+        return;
       }
-      
+
       // Prüfe ob Abteilungen übereinstimmen beim Verschieben
-      if (shiftType.department && shift.employee_details?.department && 
+      if (shiftType.department && shift.employee_details?.department &&
           shiftType.department !== shift.employee_details.department) {
-        this.dialog.open(ConfirmDialogComponent, {
-          width: '400px',
-          data: {
-            title: 'Abteilung stimmt nicht überein',
-            message: `Der Mitarbeiter gehört zu einer anderen Abteilung als dieser Schichttyp. Schicht kann nicht verschoben werden.`,
-            showCancel: false,
-            confirmText: 'Schließen'
-          }
-        });
+        this.showDropBlockedDialog(
+          'Abteilung stimmt nicht überein',
+          'Der Mitarbeiter gehört zu einer anderen Abteilung als dieser Schichttyp. Schicht kann nicht verschoben werden.'
+        );
         return;
       }
       
@@ -323,47 +279,22 @@ export class ShiftListComponent implements OnInit {
         return;
       }
       
-      // Prüfe ob Mitarbeiter an diesem Tag abwesend ist
-      const absence = this.isEmployeeAbsent(employee.id, dateStr);
-      if (absence) {
-        this.dialog.open(ConfirmDialogComponent, {
-          width: '400px',
-          data: {
-            title: 'Mitarbeiter ist abwesend',
-            message: `${employee.full_name} hat am ${this.formatDateDisplay(new Date(dateStr))} eine Abwesenheit (${this.getAbsenceTypeName(absence.absence_type)}). Schicht kann nicht erstellt werden.`,
-            showCancel: false,
-            confirmText: 'Schließen'
-          }
-        });
+      // Prüfe ob Mitarbeiter an diesem Tag abwesend ist (Abwesenheit oder genehmigter Urlaub)
+      const absenceName = this.getAbsenceName(employee.id, dateStr);
+      if (absenceName) {
+        this.showDropBlockedDialog(
+          'Mitarbeiter ist abwesend',
+          `${employee.full_name} hat am ${this.formatDateDisplay(new Date(dateStr))} eine Abwesenheit (${absenceName}). Schicht kann nicht erstellt werden.`
+        );
         return;
       }
-      
-      // Prüfe ob Mitarbeiter genehmigten Urlaub hat
-      const vacation = this.hasApprovedVacation(employee.id, dateStr);
-      if (vacation) {
-        this.dialog.open(ConfirmDialogComponent, {
-          width: '400px',
-          data: {
-            title: 'Mitarbeiter ist abwesend',
-            message: `${employee.full_name} hat am ${this.formatDateDisplay(new Date(dateStr))} eine Abwesenheit (Urlaub). Schicht kann nicht erstellt werden.`,
-            showCancel: false,
-            confirmText: 'Schließen'
-          }
-        });
-        return;
-      }
-      
+
       // Prüfe ob Abteilungen übereinstimmen
       if (shiftType.department && employee.department && shiftType.department !== employee.department) {
-        this.dialog.open(ConfirmDialogComponent, {
-          width: '400px',
-          data: {
-            title: 'Abteilung stimmt nicht überein',
-            message: `Der Mitarbeiter gehört zu einer anderen Abteilung als dieser Schichttyp. Schicht kann nicht erstellt werden.`,
-            showCancel: false,
-            confirmText: 'Schließen'
-          }
-        });
+        this.showDropBlockedDialog(
+          'Abteilung stimmt nicht überein',
+          'Der Mitarbeiter gehört zu einer anderen Abteilung als dieser Schichttyp. Schicht kann nicht erstellt werden.'
+        );
         return;
       }
       
@@ -420,12 +351,6 @@ export class ShiftListComponent implements OnInit {
 
   /** Trims a time string from HH:MM:SS to HH:MM. */
   formatTime(time: string): string { return trimSeconds(time); }
-
-  hasEmployeeConflict(employeeId: number | undefined): boolean {
-    if (!employeeId || !this.currentHoveredCell) return false;
-    const key = `${employeeId}_${this.currentHoveredCell.shiftTypeId}_${this.currentHoveredCell.date}`;
-    return this.employeeConflicts.get(key) || false;
-  }
 
   onCellHover(shiftTypeId: number, dateStr: string): void {
     const previousSize = this.conflictCells.size;
@@ -538,55 +463,6 @@ export class ShiftListComponent implements OnInit {
     this.conflictCells.clear();
   }
 
-  onDragMoved(event: any): void {
-    if (!this.currentDraggedEmployee && !this.currentDraggedShift) return;
-
-    // Get the element at the current pointer position
-    const element = document.elementFromPoint(event.pointerPosition.x, event.pointerPosition.y);
-    if (!element) return;
-
-    // Find the closest shift-cell element
-    const shiftCell = element.closest('.shift-cell');
-    if (!shiftCell) {
-      // Not over a shift cell, clear hover
-      if (this.currentHoveredCell) {
-        this.currentHoveredCell = null;
-        this.employeeConflicts.clear();
-        this.conflictCells.clear();
-        this.cdr.detectChanges();
-      }
-      return;
-    }
-
-    // Try to find shift type and date from the DOM
-    const gridRow = shiftCell.closest('.grid-row');
-    if (!gridRow) return;
-
-    // Find all shift cells in this row
-    const allCells = Array.from(gridRow.querySelectorAll('.shift-cell'));
-    const cellIndex = allCells.indexOf(shiftCell as Element);
-    
-    if (cellIndex === -1 || cellIndex >= this.weekDays.length) return;
-
-    // Find which shift type this row belongs to
-    const allRows = Array.from(document.querySelectorAll('.grid-row'));
-    const rowIndex = allRows.indexOf(gridRow as Element);
-    
-    if (rowIndex === -1 || rowIndex >= this.shiftTypes.length) return;
-
-    const shiftType = this.shiftTypes[rowIndex];
-    const dateStr = this.weekDays[cellIndex].dateStr;
-
-    // Check if we're already hovering this cell
-    if (this.currentHoveredCell?.shiftTypeId === shiftType.id && 
-        this.currentHoveredCell?.date === dateStr) {
-      return; // Already computed for this cell
-    }
-
-    // Update hover state - this will update conflictCells
-    this.onCellHover(shiftType.id, dateStr);
-  }
-
   onDropListEntered(event: any): void {
     if (!event.container.data) return;
     
@@ -609,35 +485,7 @@ export class ShiftListComponent implements OnInit {
     if (!this.currentHoveredCell) return false;
     
     const key = `${employeeId}_${this.currentHoveredCell.shiftTypeId}_${this.currentHoveredCell.date}`;
-    const hasConflict = this.employeeConflicts.get(key) === true;
-    
-    return hasConflict;
-  }
-
-  isCellInConflict(shiftTypeId: number, dateStr: string): boolean {
-    if (!this.currentHoveredCell) return false;
-    
-    // Check if this cell is the one being hovered
-    if (this.currentHoveredCell.shiftTypeId !== shiftTypeId || 
-        this.currentHoveredCell.date !== dateStr) {
-      return false;
-    }
-    
-    // Check for conflict based on what's being dragged
-    let employeeId: number | undefined;
-    
-    if (this.currentDraggedEmployee) {
-      employeeId = this.currentDraggedEmployee.id;
-    } else if (this.currentDraggedShift && this.currentDraggedShift.employee) {
-      employeeId = this.currentDraggedShift.employee;
-    }
-    
-    if (!employeeId) return false;
-    
-    const key = `${employeeId}_${shiftTypeId}_${dateStr}`;
-    const hasConflict = this.employeeConflicts.get(key) === true;
-    
-    return hasConflict;
+    return this.employeeConflicts.get(key) === true;
   }
 
   hasPermanentConflict(shiftId: number | undefined): boolean {
@@ -650,17 +498,9 @@ export class ShiftListComponent implements OnInit {
     
     // Prüfe auf Abwesenheit oder Urlaub
     if (this.absenceConflicts.has(shift.id) && shift.employee) {
-      // Zuerst prüfen ob es eine Abwesenheit ist
-      const absence = this.isEmployeeAbsent(shift.employee, shift.date);
-      if (absence) {
-        const absenceTypeName = this.getAbsenceTypeName(absence.absence_type);
-        return `Achtung: Mitarbeiter hat eine Abwesenheit (${absenceTypeName})!`;
-      }
-      
-      // Dann prüfen ob es ein genehmigter Urlaub ist
-      const vacation = this.hasApprovedVacation(shift.employee, shift.date);
-      if (vacation) {
-        return 'Achtung: Mitarbeiter hat eine Abwesenheit (Urlaub)!';
+      const absenceName = this.getAbsenceName(shift.employee, shift.date);
+      if (absenceName) {
+        return `Achtung: Mitarbeiter hat eine Abwesenheit (${absenceName})!`;
       }
     }
     
@@ -725,9 +565,6 @@ export class ShiftListComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Sicherstellen dass isEmployee korrekt gesetzt ist
-    this.isEmployee = this.authService.currentUserValue?.role === 'employee';
-    
     this.loadShiftTypes();
     this.loadEmployees();
     this.loadAbsences();
@@ -882,14 +719,6 @@ export class ShiftListComponent implements OnInit {
     }
   }
 
-  getStatusColor(status: string): string {
-    switch (status) {
-      case 'published': return 'primary';
-      case 'completed': return 'accent';
-      default: return '';
-    }
-  }
-
   /** Opens the shift dialog for creating or editing a shift. */
   openShiftDialog(shift?: Shift): void {
     const dialogRef = this.dialog.open(ShiftDialogComponent, {
@@ -911,9 +740,7 @@ export class ShiftListComponent implements OnInit {
   }
 
   createMultipleShifts(shiftsData: any[]): void {
-    let completed = 0;
-    let violations: any[] = [];
-    const total = shiftsData.length;
+    const violations: any[] = [];
 
     // Validate all shifts first
     const validations = shiftsData.map(shiftData => {
@@ -1033,8 +860,7 @@ export class ShiftListComponent implements OnInit {
         this.checkForConflictsAfterCreation(createdShift);
       },
       error: (error) => {
-        const errorMessage = this.extractShiftErrorMessage(error, 'Fehler beim Erstellen der Schicht.');
-        this.showErrorMessage(errorMessage);
+        this.snackbar.error(this.extractShiftErrorMessage(error, 'Fehler beim Erstellen der Schicht.'));
       }
     });
   }
@@ -1123,7 +949,7 @@ export class ShiftListComponent implements OnInit {
     });
 
     if (shiftsInWeek.length === 0) {
-      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      this.dialog.open(ConfirmDialogComponent, {
         data: {
           title: 'Keine Schichten',
           message: `Es gibt keine Schichten für ${weekDisplay}.`
@@ -1138,7 +964,7 @@ export class ShiftListComponent implements OnInit {
     );
 
     if (shiftsWithConflicts.length > 0) {
-      const conflictDialog = this.dialog.open(ConfirmDialogComponent, {
+      this.dialog.open(ConfirmDialogComponent, {
         data: {
           title: 'Konflikte vorhanden',
           message: `Der Schichtplan kann nicht veröffentlicht werden, da ${shiftsWithConflicts.length} Schicht${shiftsWithConflicts.length > 1 ? 'en' : ''} Konflikte aufweisen (rot markiert).\n\nBitte korrigieren Sie die Konflikte (Arbeitszeitgesetz-Verstöße, Abwesenheiten, Urlaube), bevor Sie den Plan veröffentlichen.`,
@@ -1164,7 +990,7 @@ export class ShiftListComponent implements OnInit {
         this.shiftService.publishWeek(startDate, endDate).subscribe({
           next: (response) => {
             this.loadShifts();
-            const successDialog = this.dialog.open(ConfirmDialogComponent, {
+            this.dialog.open(ConfirmDialogComponent, {
               data: {
                 title: 'Erfolgreich veröffentlicht',
                 message: `Der Schichtplan wurde veröffentlicht und ${response.emails_sent || shiftsInWeek.length} Email(s) wurden versendet.`,
@@ -1175,7 +1001,7 @@ export class ShiftListComponent implements OnInit {
           },
           error: (error) => {
             console.error('Error publishing week:', error);
-            const errorDialog = this.dialog.open(ConfirmDialogComponent, {
+            this.dialog.open(ConfirmDialogComponent, {
               data: {
                 title: 'Fehler',
                 message: error.error?.detail || 'Fehler beim Veröffentlichen des Schichtplans'
@@ -1339,25 +1165,11 @@ export class ShiftListComponent implements OnInit {
       const fileName = `Schichtplan_KW${getWeekNumber(this.currentWeekStart)}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
       
-      this.showSuccessMessage('PDF erfolgreich erstellt');
+      this.snackbar.success('PDF erfolgreich erstellt');
     } catch (error) {
       console.error('PDF Export Error:', error);
-      this.showErrorMessage('Fehler beim Erstellen der PDF');
+      this.snackbar.error('Fehler beim Erstellen der PDF');
     }
-  }
-
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.DURATION, 
-      panelClass: ['success-snackbar'] 
-    });
-  }
-
-  private showErrorMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.ERROR_DURATION, 
-      panelClass: ['error-snackbar'] 
-    });
   }
 
   private extractShiftErrorMessage(error: any, defaultMessage: string): string {

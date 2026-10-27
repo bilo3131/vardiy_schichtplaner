@@ -3,10 +3,11 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
-import { User, LoginRequest, RegisterRequest, AuthResponse, ChangePasswordRequest } from '../models';
+import { User, LoginRequest, AuthResponse, ChangePasswordRequest } from '../models';
 import { DashboardFilterService } from './dashboard-filter.service';
 import { ThemeService } from './theme.service';
 import { getApiUrl } from '../config/api.config';
+import { MANAGER_ROLES, SUPERVISOR_ROLES } from '../constants/roles.constants';
 
 @Injectable({
   providedIn: 'root'
@@ -16,7 +17,6 @@ export class AuthService {
   private readonly ENDPOINTS = {
     login: `${this.API_BASE_URL}/login/`,
     logout: `${this.API_BASE_URL}/logout/`,
-    register: `${this.API_BASE_URL}/register/`,
     demoLogin: `${this.API_BASE_URL}/demo-login/`,
     changePassword: `${this.API_BASE_URL}/users/change_password/`,
     currentUser: `${this.API_BASE_URL}/users/me/`
@@ -58,32 +58,21 @@ export class AuthService {
     return this.currentUserValue?.role === 'admin';
   }
 
-  /** Returns true for HR and department manager roles (and admin). */
+  /** Returns true for HR, department manager and admin roles. */
   get isManager(): boolean {
-    return ['hr', 'department_manager'].includes(this.currentUserValue?.role || '') || this.isAdmin;
+    const role = this.currentUserValue?.role;
+    return !!role && MANAGER_ROLES.includes(role);
   }
 
   /** Returns true for any supervisory role (team/group leader, HR, manager, admin). */
   get isSupervisor(): boolean {
-    return ['hr', 'department_manager', 'team_leader', 'group_leader'].includes(
-      this.currentUserValue?.role || ''
-    ) || this.isAdmin;
-  }
-
-  /** Returns true if the current user is NOT a plain employee (i.e. has an elevated role). */
-  get isNonEmployee(): boolean {
     const role = this.currentUserValue?.role;
-    return role !== 'employee' && !!role;
-  }
-
-  /** Returns true if the current session is a demo session. */
-  get isDemo(): boolean {
-    return this.isBrowser ? localStorage.getItem('is_demo') === 'true' : false;
+    return !!role && SUPERVISOR_ROLES.includes(role);
   }
 
   // ── Auth Actions ─────────────────────────────────────────────────────────
 
-  /** Authenticates with email + password credentials. */
+  /** Authenticates with username + password credentials. */
   login(credentials: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(this.ENDPOINTS.login, credentials).pipe(
       tap(response => this.persistAuthData(response))
@@ -93,18 +82,6 @@ export class AuthService {
   /** Authenticates as a demo user by email (no password required). */
   demoLogin(email: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(this.ENDPOINTS.demoLogin, { email }).pipe(
-      tap(response => {
-        this.persistAuthData(response);
-        if (this.isBrowser && (response as any).is_demo) {
-          localStorage.setItem('is_demo', 'true');
-        }
-      })
-    );
-  }
-
-  /** Registers a new user and immediately signs them in. */
-  register(userData: RegisterRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(this.ENDPOINTS.register, userData).pipe(
       tap(response => this.persistAuthData(response))
     );
   }
@@ -169,7 +146,6 @@ export class AuthService {
     if (this.isBrowser) {
       localStorage.removeItem('token');
       localStorage.removeItem('currentUser');
-      localStorage.removeItem('is_demo');
     }
     this.currentUserSubject.next(null);
   }

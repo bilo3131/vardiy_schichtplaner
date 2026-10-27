@@ -4,14 +4,15 @@ import { provideHttpClient, withInterceptors, withFetch, withInterceptorsFromDi,
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideNativeDateAdapter } from '@angular/material/core';
 
+import { provideServiceWorker } from '@angular/service-worker';
+
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { ErrorInterceptor } from './core/interceptors/error.interceptor';
-import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }), 
+    provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(
       withFetch(),
@@ -24,9 +25,10 @@ export const appConfig: ApplicationConfig = {
       multi: true
     },
     provideAnimationsAsync(),
-    provideNativeDateAdapter(), provideServiceWorker('ngsw-worker.js', {
-            enabled: !isDevMode(),
-            registrationStrategy: 'registerWhenStable:30000'
-          })
+    provideNativeDateAdapter(),
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000'
+    })
   ]
 };

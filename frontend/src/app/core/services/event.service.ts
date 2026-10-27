@@ -18,11 +18,6 @@ export class EventService {
     return this.http.get<any>(this.apiUrl, { params: buildHttpParams(params) });
   }
 
-  /** Fetches a single event by ID. */
-  getEvent(id: number): Observable<Event> {
-    return this.http.get<Event>(`${this.apiUrl}${id}/`);
-  }
-
   /** Creates a new event. */
   createEvent(eventData: EventFormData): Observable<Event> {
     return this.http.post<Event>(this.apiUrl, eventData);

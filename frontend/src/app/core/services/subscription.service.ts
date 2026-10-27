@@ -46,13 +46,6 @@ export class SubscriptionService {
     });
   }
 
-  /** Fetches current limits from the API and updates the cache. */
-  checkLimits(): Observable<SubscriptionLimits> {
-    return this.http.get<SubscriptionLimits>(`${this.apiUrl}/check_limits/`).pipe(
-      tap(limits => this.limits$.next(limits))
-    );
-  }
-
   /** Returns true if the subscription allows adding another employee. */
   canAddEmployee(): boolean {
     return this.limits$.value?.employees.can_add ?? false;

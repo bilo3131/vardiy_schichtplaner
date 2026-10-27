@@ -57,7 +57,6 @@ export class ErrorInterceptor implements HttpInterceptor {
   private handleUnauthorized(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('currentUser');
-    localStorage.removeItem('is_demo');
     this.router.navigate(['/login']);
   }
 

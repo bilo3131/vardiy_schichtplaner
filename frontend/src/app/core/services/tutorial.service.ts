@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import { getApiUrl } from '../config/api.config';
 import { TutorialStep, TUTORIAL_STEPS_BY_ROLE } from '../constants/tutorial-steps.constants';
 
@@ -12,8 +11,6 @@ export type { TutorialStep } from '../constants/tutorial-steps.constants';
 })
 export class TutorialService {
   private readonly apiUrl = `${getApiUrl('ACCOUNTS')}/users`;
-  private tutorialCompletedSubject = new BehaviorSubject<boolean>(false);
-  public tutorialCompleted$ = this.tutorialCompletedSubject.asObservable();
   /** Prevents showing the tutorial more than once per browser session. */
   private tutorialShownInSession = false;
 
@@ -36,9 +33,7 @@ export class TutorialService {
 
   /** Sends a request to mark the tutorial as permanently completed for this user. */
   completeTutorial(): Observable<any> {
-    return this.http.post(`${this.apiUrl}/complete_tutorial/`, {}).pipe(
-      tap(() => this.tutorialCompletedSubject.next(true))
-    );
+    return this.http.post(`${this.apiUrl}/complete_tutorial/`, {});
   }
 
   /** Returns the ordered list of tutorial steps for the given user role. */

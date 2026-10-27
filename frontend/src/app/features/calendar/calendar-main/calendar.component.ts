@@ -22,13 +22,12 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { HolidayService } from '../../../core/services/holiday.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { SnackbarService } from '../../../core/services/snackbar.service';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { EventDialogComponent } from '../../../shared/dialogs/event-dialog/event-dialog.component';
 import { EventDetailDialogComponent } from '../../../shared/dialogs/event-detail-dialog/event-detail-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/dialogs/confirm-dialog/confirm-dialog.component';
 import type { Holiday, Event, Employee, Department } from '../../../core/models';
-import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
 
 @Component({
   selector: 'app-calendar',
@@ -96,7 +95,7 @@ export class CalendarComponent implements OnInit {
     private holidayService: HolidayService,
     private authService: AuthService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackbar: SnackbarService
   ) {}
 
   ngOnInit(): void {
@@ -243,9 +242,7 @@ export class CalendarComponent implements OnInit {
     } else if (type === 'holiday') {
       // Feiertage sind read-only
       const holiday = calendarEvent.extendedProps['holiday'];
-      this.snackBar.open(`Feiertag: ${holiday.name}`, 'Schließen', {
-        duration: 3000
-      });
+      this.snackbar.info(`Feiertag: ${holiday.name}`);
     }
   }
 
@@ -280,12 +277,12 @@ export class CalendarComponent implements OnInit {
       end_datetime: newEnd
     }).subscribe({
       next: () => {
-        this.showSuccessMessage('Event verschoben');
+        this.snackbar.success('Event verschoben');
         this.loadCalendarData();
       },
       error: (error) => {
         dropInfo.revert();
-        this.showErrorMessage('Fehler beim Verschieben des Events');
+        this.snackbar.error('Fehler beim Verschieben des Events');
       }
     });
   }
@@ -306,12 +303,12 @@ export class CalendarComponent implements OnInit {
       end_datetime: newEnd
     }).subscribe({
       next: () => {
-        this.showSuccessMessage('Event-Dauer geändert');
+        this.snackbar.success('Event-Dauer geändert');
         this.loadCalendarData();
       },
       error: (error) => {
         resizeInfo.revert();
-        this.showErrorMessage('Fehler beim Ändern der Event-Dauer');
+        this.snackbar.error('Fehler beim Ändern der Event-Dauer');
       }
     });
   }
@@ -339,22 +336,22 @@ export class CalendarComponent implements OnInit {
           // Update existing event
           this.eventService.updateEvent(event.id, result).subscribe({
             next: () => {
-              this.showSuccessMessage('Event aktualisiert');
+              this.snackbar.success('Event aktualisiert');
               this.loadCalendarData();
             },
             error: (error) => {
-              this.showErrorMessage('Fehler beim Aktualisieren des Events');
+              this.snackbar.error('Fehler beim Aktualisieren des Events');
             }
           });
         } else {
           // Create new event
           this.eventService.createEvent(result).subscribe({
             next: () => {
-              this.showSuccessMessage('Event erstellt');
+              this.snackbar.success('Event erstellt');
               this.loadCalendarData();
             },
             error: (error) => {
-              this.showErrorMessage('Fehler beim Erstellen des Events');
+              this.snackbar.error('Fehler beim Erstellen des Events');
             }
           });
         }
@@ -400,11 +397,11 @@ export class CalendarComponent implements OnInit {
       if (confirmed) {
         this.eventService.deleteEvent(event.id).subscribe({
           next: () => {
-            this.showSuccessMessage('Event gelöscht');
+            this.snackbar.success('Event gelöscht');
             this.loadCalendarData();
           },
           error: (error) => {
-            this.showErrorMessage('Fehler beim Löschen des Events');
+            this.snackbar.error('Fehler beim Löschen des Events');
           }
         });
       }
@@ -424,19 +421,7 @@ export class CalendarComponent implements OnInit {
     return `${year}-${month}-${day}`;
   }
 
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', {
-      duration: UI_CONSTANTS.SNACKBAR.DURATION,
-      panelClass: ['success-snackbar']
-    });
-  }
 
-  private showErrorMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', {
-      duration: UI_CONSTANTS.SNACKBAR.ERROR_DURATION,
-      panelClass: ['error-snackbar']
-    });
-  }
 
   closeInfoBox(): void {
     this.showInfoBox = false;

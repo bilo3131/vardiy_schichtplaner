@@ -16,15 +16,6 @@ import { HolidayService } from '../../../core/services/holiday.service';
 import { AbsenceDialogComponent } from '../../../shared/dialogs/absence-dialog/absence-dialog.component';
 import { forkJoin } from 'rxjs';
 
-// Constants
-const DASHBOARD_CONSTANTS = {
-  DEFAULT_VACATION_DAYS: 30,
-  UPCOMING_EVENTS_DAYS: 7,
-  UPCOMING_VACATION_DAYS: 14,
-  SICK_THRESHOLD_PERCENTAGE: 5,
-  HOURS_PER_WEEK: 40
-} as const;
-
 const DATE_FORMATS = {
   TIME: { hour: '2-digit', minute: '2-digit' } as const,
   DATE: { weekday: 'short', day: '2-digit', month: '2-digit' } as const
@@ -142,7 +133,7 @@ export class DashboardHomeComponent implements OnInit {
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private holidayService: HolidayService,
-    private eventService?: EventService
+    private eventService: EventService
   ) {}
 
   ngOnInit(): void {
@@ -239,7 +230,7 @@ export class DashboardHomeComponent implements OnInit {
           const nextShift = upcomingShifts[0];
           const shiftDate = new Date(`${nextShift.date}T${nextShift.start_time}`);
           this.stats.nextShift = {
-            time: shiftDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+            time: shiftDate.toLocaleTimeString('de-DE', DATE_FORMATS.TIME),
             date: this.getRelativeDate(shiftDate),
             countdown: this.getCountdown(shiftDate)
           };
@@ -248,46 +239,40 @@ export class DashboardHomeComponent implements OnInit {
     });
 
     // Wichtige Termine/Events (nächste 7 Tage) - nur Events, bei denen der User Teilnehmer ist
-    if (this.eventService) {
-      const todayDate = new Date();
-      const nextWeek = new Date();
-      nextWeek.setDate(todayDate.getDate() + 7);
-      
-      this.eventService.getEvents({
-        start_date: todayDate.toISOString().split('T')[0],
-        end_date: nextWeek.toISOString().split('T')[0]
-      }).subscribe({
-        next: (data) => {
-          const allEvents = data.results || [];
-          const now = new Date();
-          
-          // Filtern nach Events, bei denen der aktuelle Benutzer Teilnehmer ist
-          // UND die noch nicht vorbei sind (inkl. Uhrzeit-Prüfung)
-          const userEvents = allEvents.filter((event: any) => {
-            // Prüfen, ob currentEmployeeId in attendees ist
-            const isAttendee = this.currentEmployeeId && event.attendees && 
-                               event.attendees.includes(this.currentEmployeeId);
-            
-            if (!isAttendee) return false;
-            
-            // Prüfen, ob Event noch nicht vorbei ist
-            const eventEndTime = event.end_datetime ? new Date(event.end_datetime) : new Date(event.start_datetime);
-            return eventEndTime > now;
-          });
-          
-          this.stats.upcomingEvents = userEvents.length;
-          if (userEvents.length > 0) {
-            const nextEvent = userEvents[0]; // Bereits nach start_datetime sortiert
-            const eventDate = new Date(nextEvent.start_datetime);
-            this.stats.nextEventDate = this.getRelativeDate(eventDate);
-          }
-        },
-        error: (error) => {
-          console.error('Error loading events:', error);
-          this.stats.upcomingEvents = 0;
+    const todayDate = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(todayDate.getDate() + 7);
+
+    this.eventService.getEvents({
+      start_date: todayDate.toISOString().split('T')[0],
+      end_date: nextWeek.toISOString().split('T')[0]
+    }).subscribe({
+      next: (data) => {
+        const allEvents = data.results || [];
+        const now = new Date();
+
+        // Filtern nach Events, bei denen der aktuelle Benutzer Teilnehmer ist
+        // UND die noch nicht vorbei sind (inkl. Uhrzeit-Prüfung)
+        const userEvents = allEvents.filter((event: any) => {
+          const isAttendee = this.currentEmployeeId && event.attendees &&
+                             event.attendees.includes(this.currentEmployeeId);
+          if (!isAttendee) return false;
+
+          const eventEndTime = event.end_datetime ? new Date(event.end_datetime) : new Date(event.start_datetime);
+          return eventEndTime > now;
+        });
+
+        this.stats.upcomingEvents = userEvents.length;
+        if (userEvents.length > 0) {
+          const nextEvent = userEvents[0]; // Bereits nach start_datetime sortiert
+          this.stats.nextEventDate = this.getRelativeDate(new Date(nextEvent.start_datetime));
         }
-      });
-    }
+      },
+      error: (error) => {
+        console.error('Error loading events:', error);
+        this.stats.upcomingEvents = 0;
+      }
+    });
 
     // Urlaubstage (Standard-Werte - TODO: Von Backend Employee-Daten laden)
     this.stats.totalVacationDays = 30;
@@ -357,7 +342,6 @@ export class DashboardHomeComponent implements OnInit {
     });
 
     // Feiertage in den nächsten 14 Tagen
-    const todayDate = new Date();
     const inTwoWeeks = new Date();
     inTwoWeeks.setDate(todayDate.getDate() + 14);
 
@@ -456,38 +440,9 @@ export class DashboardHomeComponent implements OnInit {
         const lastWeekEnd = new Date(currentWeekEnd);
         lastWeekEnd.setDate(currentWeekEnd.getDate() - 7);
         
-        // Krankenstand aktuelle Woche - zähle alle Tage an denen jemand krank war
-        const sickDaysCurrentWeek = new Set<string>(); // Set von "employeeId-date" für eindeutige Tage
-        absences.forEach((a: any) => {
-          if (a.absence_type !== 'sick') return;
-          const start = new Date(a.start_date);
-          const end = new Date(a.end_date);
-          
-          // Iteriere über alle Tage der Krankheit, die in der aktuellen Woche liegen
-          for (let d = new Date(Math.max(start.getTime(), currentWeekStart.getTime())); 
-               d.getTime() <= Math.min(end.getTime(), currentWeekEnd.getTime()); 
-               d.setDate(d.getDate() + 1)) {
-            sickDaysCurrentWeek.add(`${a.employee}-${d.toISOString().split('T')[0]}`);
-          }
-        });
-        
-        // Krankenstand Vorwoche
-        const sickDaysLastWeek = new Set<string>();
-        absences.forEach((a: any) => {
-          if (a.absence_type !== 'sick') return;
-          const start = new Date(a.start_date);
-          const end = new Date(a.end_date);
-          
-          for (let d = new Date(Math.max(start.getTime(), lastWeekStart.getTime())); 
-               d.getTime() <= Math.min(end.getTime(), lastWeekEnd.getTime()); 
-               d.setDate(d.getDate() + 1)) {
-            sickDaysLastWeek.add(`${a.employee}-${d.toISOString().split('T')[0]}`);
-          }
-        });
-        
-        // Durchschnittlicher Krankenstand pro Tag in der Woche
-        const avgSickCurrentWeek = sickDaysCurrentWeek.size / 7; // 7 Tage
-        const avgSickLastWeek = sickDaysLastWeek.size / 7;
+        // Durchschnittlicher Krankenstand pro Tag in der Woche (7 Tage)
+        const avgSickCurrentWeek = this.countSickDays(absences, currentWeekStart, currentWeekEnd) / 7;
+        const avgSickLastWeek = this.countSickDays(absences, lastWeekStart, lastWeekEnd) / 7;
         
         // Krankenstand als Prozentsatz (durchschnittlich kranke MA pro Tag / Gesamt-MA)
         this.stats.sickRate = this.stats.totalEmployees > 0 
@@ -673,22 +628,9 @@ export class DashboardHomeComponent implements OnInit {
         let employeesWithHours = 0;
         
         employees.forEach((emp: any) => {
-          // Finde alle Schichten für diesen Mitarbeiter
           const empShifts = shifts.filter((s: any) => s.employee === emp.id);
-          const weeklyHours = empShifts.reduce((sum: number, s: any) => {
-            // Hole ShiftType für Zeitberechnung
-            const shiftType = shiftTypes.find((st: any) => st.id === s.shift_type);
-            if (!shiftType) return sum;
-            
-            // Berechne Dauer mit Pausenabzug
-            const duration = this.calculateShiftDuration(
-              shiftType.start_time, 
-              shiftType.end_time, 
-              shiftType.break_duration || 0
-            );
-            return sum + duration;
-          }, 0);
-          
+          const weeklyHours = this.calculateWeeklyHours(empShifts, shiftTypes);
+
           const minHours = emp.min_hours_per_week || 0;
           const maxHours = emp.max_hours_per_week || 40;
           
@@ -797,10 +739,23 @@ export class DashboardHomeComponent implements OnInit {
     this.router.navigate([route]);
   }
 
-  private findEmployeeShifts(shifts: any[], employeeId: number): any[] {
-    return shifts.filter((s: any) => s.employee === employeeId);
+  /** Counts distinct (employee, day) sick days that fall within [from, to]. */
+  private countSickDays(absences: any[], from: Date, to: Date): number {
+    const sickDays = new Set<string>();
+    absences.forEach((a: any) => {
+      if (a.absence_type !== 'sick') return;
+      const start = new Date(a.start_date);
+      const end = new Date(a.end_date);
+      for (let d = new Date(Math.max(start.getTime(), from.getTime()));
+           d.getTime() <= Math.min(end.getTime(), to.getTime());
+           d.setDate(d.getDate() + 1)) {
+        sickDays.add(`${a.employee}-${d.toISOString().split('T')[0]}`);
+      }
+    });
+    return sickDays.size;
   }
 
+  /** Sums the net hours (shift length minus break) of the given shifts. */
   private calculateWeeklyHours(shifts: any[], shiftTypes: any[]): number {
     return shifts.reduce((sum: number, shift: any) => {
       const shiftType = shiftTypes.find((st: any) => st.id === shift.shift_type);

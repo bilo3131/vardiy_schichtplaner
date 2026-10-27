@@ -1,10 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, Subject, interval } from 'rxjs';
-import { switchMap, startWith, filter } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import type { Notification } from '../models';
 import { getApiUrl } from '../config/api.config';
-import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,16 +10,7 @@ import { AuthService } from './auth.service';
 export class NotificationService {
   private readonly notificationsUrl = `${getApiUrl('SHIFTS')}/notifications/`;
 
-  private newNotificationSubject = new Subject<any>();
-  /** Emits whenever a new notification arrives via polling. */
-  public newNotification$ = this.newNotificationSubject.asObservable();
-
-  constructor(
-    private http: HttpClient,
-    private authService: AuthService
-  ) {
-    this.startNotificationPolling();
-  }
+  constructor(private http: HttpClient) {}
 
   /** Fetches the full list of notifications for the current user. */
   getNotifications(): Observable<any> {
@@ -56,28 +45,5 @@ export class NotificationService {
       return (await Notification.requestPermission()) === 'granted';
     }
     return false;
-  }
-
-  /** Shows a native browser notification if permission has been granted. */
-  showLocalNotification(title: string, options?: NotificationOptions): void {
-    if (Notification.permission !== 'granted') return;
-    new Notification(title, {
-      icon: '/assets/icons/icon-192x192.png',
-      badge: '/assets/icons/icon-192x192.png',
-      ...options
-    });
-  }
-
-  // ── Private ───────────────────────────────────────────────────────────────
-
-  /** Polls unread count every 30 seconds while the user is authenticated. */
-  private startNotificationPolling(): void {
-    interval(30_000)
-      .pipe(
-        startWith(0),
-        filter(() => this.authService.isAuthenticated),
-        switchMap(() => this.getUnreadCount())
-      )
-      .subscribe();
   }
 }

@@ -9,7 +9,6 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
@@ -17,7 +16,9 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DashboardFilterService } from '../../../core/services/dashboard-filter.service';
 import { SubscriptionService } from '../../../core/services/subscription.service';
-import { Employee } from '../../../core/models';
+import { SnackbarService } from '../../../core/services/snackbar.service';
+import { Employee, EmploymentType, UserRole } from '../../../core/models';
+import { ADMIN_ROLES, EMPLOYMENT_TYPE_LABELS, ROLE_LABELS, canManageRole } from '../../../core/constants/roles.constants';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner.component';
 import { EmployeeDialogComponent } from '../../../shared/dialogs/employee-dialog/employee-dialog.component';
 import { EmployeeDetailDialogComponent } from '../../../shared/dialogs/employee-detail-dialog/employee-detail-dialog.component';
@@ -39,7 +40,6 @@ import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatSnackBarModule,
     MatDialogModule,
     LoadingSpinnerComponent,
     MatTooltipModule
@@ -48,23 +48,6 @@ import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
   styleUrls: ['./employee-list.component.scss']
 })
 export class EmployeeListComponent implements OnInit {
-  private readonly EMPLOYMENT_TYPE_LABELS = {
-    'fulltime': 'Vollzeit',
-    'parttime': 'Teilzeit',
-    'minijob': 'Minijob',
-    'werkstudent': 'Werkstudent',
-    'apprentice': 'Ausbildung'
-  } as const;
-
-  private readonly ROLE_LABELS = {
-    'admin': 'Administrator',
-    'hr': 'Personalverwaltung',
-    'department_manager': 'Abteilungsleiter',
-    'team_leader': 'Teamleiter',
-    'group_leader': 'Gruppenleiter',
-    'employee': 'Mitarbeiter'
-  } as const;
-
   employees: Employee[] = [];
   loading = false;
   displayedColumns = ['name', 'department', 'employment_type', 'hours', 'role', 'status', 'actions'];
@@ -79,52 +62,36 @@ export class EmployeeListComponent implements OnInit {
   constructor(
     private employeeService: EmployeeService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar,
+    private snackbar: SnackbarService,
     public authService: AuthService,
     private dashboardFilterService: DashboardFilterService,
     private subscriptionService: SubscriptionService,
     private router: Router
   ) {}
 
-  canAddEmployee(): boolean {
+  /** Admin and HR may add, delete and reset the passwords of employees. */
+  private isAdminOrHr(): boolean {
     const user = this.authService.currentUserValue;
-    if (!user) return false;
-    return user.role === 'admin' || user.role === 'hr';
+    return !!user && ADMIN_ROLES.includes(user.role);
+  }
+
+  canAddEmployee(): boolean {
+    return this.isAdminOrHr();
   }
 
   canEditEmployee(employee: Employee): boolean {
     const user = this.authService.currentUserValue;
     if (!user) return false;
-    
-    const employeeRole = employee.user_details?.role;
-    const isOwnProfile = user.employee_profile?.id === employee.id;
-    
-    if (user.role === 'admin' || user.role === 'hr') return true;
-    if (isOwnProfile) return true;
-    
-    if (user.role === 'department_manager') {
-      return employeeRole === 'team_leader' || 
-             employeeRole === 'group_leader' || 
-             employeeRole === 'employee';
-    }
-    
-    if (user.role === 'team_leader' || user.role === 'group_leader') {
-      return employeeRole === 'employee';
-    }
-    
-    return false;
+    if (user.employee_profile?.id === employee.id) return true;
+    return canManageRole(user.role, employee.user_details?.role);
   }
 
-  canDeleteEmployee(employee: Employee): boolean {
-    const user = this.authService.currentUserValue;
-    if (!user) return false;
-    return user.role === 'admin' || user.role === 'hr';
+  canDeleteEmployee(): boolean {
+    return this.isAdminOrHr();
   }
 
   canResetPassword(): boolean {
-    const user = this.authService.currentUserValue;
-    if (!user) return false;
-    return user.role === 'admin' || user.role === 'hr';
+    return this.isAdminOrHr();
   }
 
   ngOnInit(): void {
@@ -173,11 +140,11 @@ export class EmployeeListComponent implements OnInit {
   }
 
   getEmploymentTypeLabel(type: string): string {
-    return this.EMPLOYMENT_TYPE_LABELS[type as keyof typeof this.EMPLOYMENT_TYPE_LABELS] || type;
+    return EMPLOYMENT_TYPE_LABELS[type as EmploymentType] || type;
   }
 
   getRoleLabel(role: string): string {
-    return this.ROLE_LABELS[role as keyof typeof this.ROLE_LABELS] || role;
+    return ROLE_LABELS[role as UserRole] || role;
   }
 
   openDetailDialog(employee: Employee): void {
@@ -201,11 +168,11 @@ export class EmployeeListComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.loadEmployees();
-        this.showSuccessMessage('Status erfolgreich aktualisiert');
+        this.snackbar.success('Status erfolgreich aktualisiert');
       },
       error: (error) => {
         console.error('Error updating status:', error);
-        this.showErrorMessage('Fehler beim Aktualisieren des Status');
+        this.snackbar.error('Fehler beim Aktualisieren des Status');
       }
     });
   }
@@ -250,12 +217,11 @@ export class EmployeeListComponent implements OnInit {
     this.employeeService.createEmployee(data).subscribe({
       next: () => {
         this.loadEmployees();
-        this.showSuccessMessage('Mitarbeiter erfolgreich erstellt');
+        this.snackbar.success('Mitarbeiter erfolgreich erstellt');
       },
       error: (error) => {
         console.error('Error creating employee:', error);
-        const message = this.extractErrorMessage(error, 'Fehler beim Erstellen des Mitarbeiters');
-        this.showErrorMessage(message, UI_CONSTANTS.SNACKBAR.ERROR_DURATION);
+        this.snackbar.error(this.extractErrorMessage(error, 'Fehler beim Erstellen des Mitarbeiters'));
       }
     });
   }
@@ -264,11 +230,11 @@ export class EmployeeListComponent implements OnInit {
     this.employeeService.updateEmployee(id, data).subscribe({
       next: () => {
         this.loadEmployees();
-        this.showSuccessMessage('Mitarbeiter erfolgreich aktualisiert');
+        this.snackbar.success('Mitarbeiter erfolgreich aktualisiert');
       },
       error: (error) => {
         console.error('Error updating employee:', error);
-        this.showErrorMessage('Fehler beim Aktualisieren des Mitarbeiters');
+        this.snackbar.error('Fehler beim Aktualisieren des Mitarbeiters');
       }
     });
   }
@@ -311,12 +277,11 @@ export class EmployeeListComponent implements OnInit {
           width: UI_CONSTANTS.DIALOG.WIDTH_MD,
           data: response
         });
-        this.showSuccessMessage('Passwort erfolgreich zurückgesetzt');
+        this.snackbar.success('Passwort erfolgreich zurückgesetzt');
       },
       error: (error) => {
         console.error('Error resetting password:', error);
-        const message = error.error?.error || 'Fehler beim Zurücksetzen des Passworts';
-        this.showErrorMessage(message);
+        this.snackbar.error(error.error?.error || 'Fehler beim Zurücksetzen des Passworts');
       }
     });
   }
@@ -325,37 +290,17 @@ export class EmployeeListComponent implements OnInit {
     this.employeeService.deleteEmployee(id).subscribe({
       next: () => {
         this.loadEmployees();
-        this.showSuccessMessage('Mitarbeiter erfolgreich gelöscht');
+        this.snackbar.success('Mitarbeiter erfolgreich gelöscht');
       },
       error: (error) => {
         console.error('Error deleting employee:', error);
-        this.showErrorMessage('Fehler beim Löschen des Mitarbeiters');
+        this.snackbar.error('Fehler beim Löschen des Mitarbeiters');
       }
     });
   }
 
   private extractErrorMessage(error: any, defaultMessage: string): string {
     return error.error?.email?.[0] || error.error?.detail || defaultMessage;
-  }
-
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.DURATION, 
-      panelClass: ['success-snackbar'] 
-    });
-  }
-
-  private showErrorMessage(message: string, duration: number = UI_CONSTANTS.SNACKBAR.ERROR_DURATION): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration, 
-      panelClass: ['error-snackbar'] 
-    });
-  }
-
-  private showInfoMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.DURATION
-    });
   }
 
   closeInfoBox(): void {

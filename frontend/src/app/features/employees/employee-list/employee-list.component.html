@@ -97,7 +97,7 @@
             <button *ngIf="canResetPassword()" mat-icon-button (click)="resetEmployeePassword(employee); $event.stopPropagation()" matTooltip="Passwort zurücksetzen">
               <mat-icon>vpn_key</mat-icon>
             </button>
-            <button *ngIf="canDeleteEmployee(employee)" mat-icon-button color="warn" (click)="deleteEmployee(employee.id); $event.stopPropagation()" matTooltip="Löschen">
+            <button *ngIf="canDeleteEmployee()" mat-icon-button color="warn" (click)="deleteEmployee(employee.id); $event.stopPropagation()" matTooltip="Löschen">
               <mat-icon>delete</mat-icon>
             </button>
           </td>

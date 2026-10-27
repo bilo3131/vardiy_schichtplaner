@@ -18,11 +18,6 @@ export class DepartmentService {
     return this.http.get<any>(`${this.API_URL}/`, { params: buildHttpParams(params) });
   }
 
-  /** Fetches a single department by ID. */
-  getDepartment(id: number): Observable<Department> {
-    return this.http.get<Department>(`${this.API_URL}/${id}/`);
-  }
-
   /** Creates a new department. */
   createDepartment(data: Partial<Department>): Observable<Department> {
     return this.http.post<Department>(`${this.API_URL}/`, data);

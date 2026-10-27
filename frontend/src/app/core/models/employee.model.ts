@@ -43,22 +43,6 @@ export interface Employee {
   updated_at: string;
 }
 
-// Availability Models
-export type AvailabilityType = 'available' | 'unavailable' | 'preferred';
-
-export interface Availability {
-  id: number;
-  employee: number;
-  employee_name: string;
-  weekday?: number;
-  weekday_display?: string;
-  specific_date?: string;
-  start_time: string;
-  end_time: string;
-  availability_type: AvailabilityType;
-  notes?: string;
-}
-
 // Vacation Request Models
 export type VacationStatus = 'pending' | 'approved' | 'rejected';
 

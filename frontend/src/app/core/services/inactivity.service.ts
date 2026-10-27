@@ -1,6 +1,5 @@
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { MatSnackBar, MatSnackBarRef, TextOnlySnackBar } from '@angular/material/snack-bar';
 
@@ -11,7 +10,6 @@ const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchs
 })
 export class InactivityService {
   private platformId = inject(PLATFORM_ID);
-  private router = inject(Router);
   private authService = inject(AuthService);
   private snackBar = inject(MatSnackBar);
 

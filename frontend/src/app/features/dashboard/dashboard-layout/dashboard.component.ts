@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { Subscription } from 'rxjs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -24,13 +24,14 @@ import { SubscriptionService } from '../../../core/services/subscription.service
 import { InactivityService } from '../../../core/services/inactivity.service';
 import { TutorialService } from '../../../core/services/tutorial.service';
 import { TutorialDialogComponent } from '../../../shared/dialogs/tutorial-dialog/tutorial-dialog.component';
-import type { User, Department, Notification } from '../../../core/models';
+import type { User, UserRole, Department, Notification } from '../../../core/models';
+import { ADMIN_ROLES, ALL_ROLES, MANAGER_ROLES, ROLE_LABELS, SUPERVISOR_ROLES } from '../../../core/constants/roles.constants';
 
 interface MenuItem {
   label: string;
   icon: string;
   route?: string;
-  roles: string[];
+  roles: UserRole[];
   divider?: boolean;
 }
 
@@ -79,81 +80,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   menuItems: MenuItem[] = [
-    {
-      label: 'Dashboard',
-      icon: 'dashboard',
-      route: '/dashboard',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
-    {
-      label: 'Kalender',
-      icon: 'calendar_month',
-      route: '/calendar',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
-    {
-      label: 'Schichtplan',
-      icon: 'calendar_today',
-      route: '/shifts',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
-    {
-      label: 'Schichten',
-      icon: 'category',
-      route: '/shift-types',
-      roles: ['admin', 'hr', 'department_manager'],
-      divider: true
-    },
-    {
-      label: 'Personal',
-      icon: 'people',
-      route: '/employees',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader']
-    },
-    {
-      label: 'Qualifikationen',
-      icon: 'verified',
-      route: '/qualifications',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader'],
-      divider: true
-    },
-    {
-      label: 'Urlaub',
-      icon: 'beach_access',
-      route: '/vacations',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
-    {
-      label: 'Abwesenheiten',
-      icon: 'sick',
-      route: '/absences',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader'],
-      divider: true
-    },
-    {
-      label: 'Abteilungen',
-      icon: 'corporate_fare',
-      route: '/departments',
-      roles: ['admin', 'hr']
-    },
-    {
-      label: 'AGB',
-      icon: 'description',
-      route: '/terms',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
-    {
-      label: 'Datenschutz',
-      icon: 'policy',
-      route: '/privacy-policy',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
-    {
-      label: 'Impressum',
-      icon: 'gavel',
-      route: '/imprint',
-      roles: ['admin', 'hr', 'department_manager', 'team_leader', 'group_leader', 'employee']
-    },
+    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard', roles: ALL_ROLES },
+    { label: 'Kalender', icon: 'calendar_month', route: '/calendar', roles: ALL_ROLES },
+    { label: 'Schichtplan', icon: 'calendar_today', route: '/shifts', roles: ALL_ROLES },
+    { label: 'Schichten', icon: 'category', route: '/shift-types', roles: MANAGER_ROLES, divider: true },
+    { label: 'Personal', icon: 'people', route: '/employees', roles: SUPERVISOR_ROLES },
+    { label: 'Qualifikationen', icon: 'verified', route: '/qualifications', roles: SUPERVISOR_ROLES, divider: true },
+    { label: 'Urlaub', icon: 'beach_access', route: '/vacations', roles: ALL_ROLES },
+    { label: 'Abwesenheiten', icon: 'sick', route: '/absences', roles: SUPERVISOR_ROLES, divider: true },
+    { label: 'Abteilungen', icon: 'corporate_fare', route: '/departments', roles: ADMIN_ROLES },
+    { label: 'AGB', icon: 'description', route: '/terms', roles: ALL_ROLES },
+    { label: 'Datenschutz', icon: 'policy', route: '/privacy-policy', roles: ALL_ROLES },
+    { label: 'Impressum', icon: 'gavel', route: '/imprint', roles: ALL_ROLES }
   ];
 
   constructor(
@@ -207,7 +145,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
       
       // Lade Abteilungen für Admin/HR/Department Manager
-      if (user && ['admin', 'hr', 'department_manager'].includes(user.role)) {
+      if (user && MANAGER_ROLES.includes(user.role)) {
         this.loadDepartments();
       }
       
@@ -369,21 +307,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return colors[type] || '';
   }
 
-  hasAccess(roles: string[]): boolean {
+  hasAccess(roles: UserRole[]): boolean {
     return this.currentUser ? roles.includes(this.currentUser.role) : false;
   }
 
-  getRoleLabel(role: string | undefined): string {
-    if (!role) return 'Mitarbeiter';
-    const labels: Record<string, string> = {
-      'admin': 'Administrator',
-      'hr': 'Personalwesen',
-      'department_manager': 'Abteilungsleiter',
-      'team_leader': 'Teamleiter',
-      'group_leader': 'Gruppenleiter',
-      'employee': 'Mitarbeiter'
-    };
-    return labels[role] || 'Mitarbeiter';
+  getRoleLabel(role: UserRole | undefined): string {
+    return (role && ROLE_LABELS[role]) || ROLE_LABELS.employee;
   }
 
   logout(): void {
