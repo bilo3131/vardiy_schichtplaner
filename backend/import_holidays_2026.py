@@ -44,7 +44,7 @@ def import_holidays_2026():
                 date=holiday_data['date'],
                 defaults={
                     'is_recurring': holiday_data['is_recurring'],
-                    'description': f"Gesetzlicher Feiertag in Deutschland"
+                    'description': "Gesetzlicher Feiertag in Deutschland"
                 }
             )
             

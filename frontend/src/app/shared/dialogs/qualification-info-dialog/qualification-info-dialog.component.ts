@@ -28,8 +28,4 @@ export class QualificationInfoDialogComponent {
   onEdit(): void {
     this.dialogRef.close({ action: 'edit', qualification: this.data.qualification });
   }
-
-  onClose(): void {
-    this.dialogRef.close();
-  }
 }

@@ -9,39 +9,14 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
-import { Employee, Qualification, Department } from '../../../core/models';
+import { Employee, EmploymentType, Qualification, Department, UserRole } from '../../../core/models';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DateUtilsService } from '../../../core/services/date-utils.service';
-
-const ROLE_HIERARCHY: Record<string, number> = {
-  admin: 5,
-  hr: 4,
-  department_manager: 3,
-  team_leader: 2,
-  group_leader: 2,
-  employee: 1
-};
-
-// Permission Helper Functions
-class EmployeePermissions {
-  static readonly ADMIN_ROLES = ['admin', 'hr'];
-  static readonly MANAGER_ROLES = ['admin', 'hr', 'department_manager'];
-  static readonly SUPERVISOR_ROLES = [...this.MANAGER_ROLES, 'team_leader', 'group_leader'];
-
-  static canEditWorkingHours(userRole: string): boolean {
-    return this.ADMIN_ROLES.includes(userRole);
-  }
-
-  static canEditRole(userRole: string): boolean {
-    return this.ADMIN_ROLES.includes(userRole);
-  }
-
-  static canEditAllFields(userRole: string): boolean {
-    return this.ADMIN_ROLES.includes(userRole);
-  }
-}
+import {
+  ADMIN_ROLES, EMPLOYMENT_TYPE_LABELS, ROLE_LABELS, SUPERVISOR_ROLES, canManageRole
+} from '../../../core/constants/roles.constants';
 
 @Component({
   selector: 'app-employee-dialog',
@@ -115,23 +90,12 @@ export class EmployeeDialogComponent {
       this.employeeForm.get('qualifications')?.setValue(validQuals);
     });
     
-    if (!this.canEditRole()) {
-      this.employeeForm.get('role')?.disable();
-    }
-    if (!this.canEditWorkingHours()) {
-      this.employeeForm.get('min_hours_per_week')?.disable();
-      this.employeeForm.get('max_hours_per_week')?.disable();
-      this.employeeForm.get('overtime_hours_h')?.disable();
-      this.employeeForm.get('overtime_hours_min')?.disable();
-    }
-    
-    const currentUser = this.authService.currentUserValue;
-    
+    // Without full edit rights only qualifications and notes stay editable
     if (!this.canEditEmployee()) {
       Object.keys(this.employeeForm.controls).forEach(key => {
         this.employeeForm.get(key)?.disable();
       });
-    } else if (currentUser && !this.canEditAllFields()) {
+    } else if (!this.canEditAllFields()) {
       Object.keys(this.employeeForm.controls).forEach(key => {
         if (key !== 'qualifications' && key !== 'notes') {
           this.employeeForm.get(key)?.disable();
@@ -204,68 +168,31 @@ export class EmployeeDialogComponent {
       this.dialogRef.close(formValue);
     }
   }
-  onDelete(): void {
-    this.dialogRef.close({ delete: true });
-  }
 
   canEditEmployee(): boolean {
-    const user = this.authService.currentUserValue;
-    if (!user) return false;
-    if (!this.data.employee) return true;
-    
-    const employeeRole = this.data.employee.user_details?.role || 'employee';
-    const isOwnProfile = user.employee_profile?.id === this.data.employee.id;
-    
-    if (EmployeePermissions.ADMIN_ROLES.includes(user.role)) return true;
-    
-    if (user.role === 'department_manager') {
-      return ['team_leader', 'group_leader', 'employee'].includes(employeeRole) || isOwnProfile;
-    }
-    
-    if (['team_leader', 'group_leader'].includes(user.role)) {
-      return employeeRole === 'employee' || isOwnProfile;
-    }
-    
-    return false;
-  }
-
-  isLimitedEdit(): boolean {
-    return !this.canEditEmployee();
-  }
-
-  canEditWorkingHours(): boolean {
-    const user = this.authService.currentUserValue;
-    return user ? EmployeePermissions.canEditWorkingHours(user.role) : false;
-  }
-
-  canEditRole(): boolean {
-    const user = this.authService.currentUserValue;
-    return user ? EmployeePermissions.canEditRole(user.role) : false;
-  }
-
-  canEditAllFields(): boolean {
-    const user = this.authService.currentUserValue;
-    return user ? EmployeePermissions.canEditAllFields(user.role) : false;
+    if (!this.authService.currentUserValue) return false;
+    return !this.data.employee || this.canManageEmployee();
   }
 
   canEditQualifications(): boolean {
+    return !!this.data.employee && this.canManageEmployee();
+  }
+
+  /** Admin and HR may edit every field, including role and working hours. */
+  canEditAllFields(): boolean {
     const user = this.authService.currentUserValue;
-    if (!user || !this.data.employee) return false;
-    
-    if (EmployeePermissions.ADMIN_ROLES.includes(user.role)) return true;
-    
-    const employeeRole = this.data.employee.user_details?.role || 'employee';
-    const isOwnProfile = user.employee_profile?.id === this.data.employee.id;
-    
-    if (user.role === 'department_manager') {
-      return ['team_leader', 'group_leader', 'employee'].includes(employeeRole) || isOwnProfile;
-    }
-    
-    if (['team_leader', 'group_leader'].includes(user.role)) {
-      return employeeRole === 'employee' || isOwnProfile;
-    }
-    
-    return false;
+    return !!user && ADMIN_ROLES.includes(user.role);
+  }
+
+  /** Supervisors may edit their own profile; otherwise the employee's role decides. */
+  private canManageEmployee(): boolean {
+    const user = this.authService.currentUserValue;
+    const employee = this.data.employee;
+    if (!user || !employee) return false;
+
+    const employeeRole = employee.user_details?.role || 'employee';
+    const isOwnProfile = user.employee_profile?.id === employee.id;
+    return canManageRole(user.role, employeeRole) || (isOwnProfile && SUPERVISOR_ROLES.includes(user.role));
   }
 
   // Hilfsmethoden für die Anzeige
@@ -284,26 +211,11 @@ export class EmployeeDialogComponent {
 
   getEmploymentTypeName(): string {
     const type = this.employeeForm.get('employment_type')?.value;
-    const typeMap: Record<string, string> = {
-      'fulltime': 'Vollzeit',
-      'parttime': 'Teilzeit',
-      'minijob': 'Minijob',
-      'werkstudent': 'Werkstudent',
-      'apprentice': 'Ausbildung'
-    };
-    return typeMap[type] || type;
+    return EMPLOYMENT_TYPE_LABELS[type as EmploymentType] || type;
   }
 
   getRoleName(): string {
     const role = this.employeeForm.get('role')?.value;
-    const roleMap: Record<string, string> = {
-      'employee': 'Mitarbeiter',
-      'group_leader': 'Gruppenleiter',
-      'team_leader': 'Teamleiter',
-      'department_manager': 'Abteilungsleiter',
-      'hr': 'Personalwesen',
-      'admin': 'Administrator'
-    };
-    return roleMap[role] || role;
+    return ROLE_LABELS[role as UserRole] || role;
   }
 }

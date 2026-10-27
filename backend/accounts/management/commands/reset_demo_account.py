@@ -115,7 +115,7 @@ class Command(BaseCommand):
             subscription.save()
 
             # Erstelle Master-Demo-Admin-User
-            master_user = User.objects.create_user(
+            User.objects.create_user(
                 username=DEMO_MASTER_USERNAME,
                 password=DEMO_MASTER_PASSWORD,
                 first_name="Demo",
@@ -133,7 +133,7 @@ class Command(BaseCommand):
 
     def _clear_demo_data(self, demo_org):
         """Löscht alle Demo-Daten außer dem Master-Admin-User"""
-        from shifts.models import Shift, ShiftType, Department, Employee, VacationRequest
+        from shifts.models import Shift, ShiftType, Department, VacationRequest
 
         # Shifts löschen
         Shift.objects.filter(organization=demo_org).delete()
@@ -192,8 +192,8 @@ class Command(BaseCommand):
     def _create_employees(self, demo_org, departments):
         from shifts.models import Employee
         employees = []
-        for i, emp_data in enumerate(EMPLOYEES_DATA):
-            username = f"demo_{emp_data['first_name'].lower()}_{emp_data['last_name'].lower()}"
+        for emp_data in EMPLOYEES_DATA:
+            username =f"demo_{emp_data['first_name'].lower()}_{emp_data['last_name'].lower()}"
             user = User.objects.create_user(
                 username=username,
                 password=DEMO_MASTER_PASSWORD,

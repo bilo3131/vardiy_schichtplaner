@@ -6,8 +6,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FormsModule } from '@angular/forms';
-import { Employee } from '../../../core/models';
+import { Employee, EmploymentType, UserRole } from '../../../core/models';
 import { AuthService } from '../../../core/services/auth.service';
+import { EMPLOYMENT_TYPE_LABELS, MANAGER_ROLES, ROLE_LABELS } from '../../../core/constants/roles.constants';
 
 @Component({
   selector: 'app-employee-detail-dialog',
@@ -37,7 +38,7 @@ export class EmployeeDetailDialogComponent {
 
   canViewStatus(): boolean {
     const user = this.authService.currentUserValue;
-    return ['admin', 'hr', 'department_manager'].includes(user?.role || '');
+    return !!user && MANAGER_ROLES.includes(user.role);
   }
 
   canEditStatus(): boolean {
@@ -67,26 +68,11 @@ export class EmployeeDetailDialogComponent {
   }
 
   getEmploymentTypeLabel(type: string): string {
-    const labels: any = {
-      'fulltime': 'Vollzeit',
-      'parttime': 'Teilzeit',
-      'minijob': 'Minijob',
-      'werkstudent': 'Werkstudent',
-      'apprentice': 'Ausbildung'
-    };
-    return labels[type] || type;
+    return EMPLOYMENT_TYPE_LABELS[type as EmploymentType] || type;
   }
 
   getRoleLabel(role: string): string {
-    const labels: any = {
-      'admin': 'Administrator',
-      'hr': 'Personalwesen',
-      'department_manager': 'Abteilungsleiter',
-      'team_leader': 'Teamleiter',
-      'group_leader': 'Gruppenleiter',
-      'employee': 'Mitarbeiter'
-    };
-    return labels[role] || role;
+    return ROLE_LABELS[role as UserRole] || role;
   }
 
   onStatusChange(): void {

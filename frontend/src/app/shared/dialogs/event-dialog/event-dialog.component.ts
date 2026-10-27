@@ -10,7 +10,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
-import type { Event, EventType, Employee, Department } from '../../../core/models';
+import type { Event, Employee, Department } from '../../../core/models';
 import { DateUtilsService } from '../../../core/services/date-utils.service';
 
 export interface EventDialogData {
@@ -66,9 +66,9 @@ export class EventDialogComponent implements OnInit {
       description: [data.event?.description || ''],
       event_type: [data.event?.event_type || 'meeting', Validators.required],
       start_date: [data.event ? new Date(data.event.start_datetime) : startDate, Validators.required],
-      start_time: [data.initialStartTime || (data.event ? this.extractTime(data.event.start_datetime) : this.dateUtils.formatTimeForInput(now)), Validators.required],
+      start_time: [data.initialStartTime || (data.event ? this.dateUtils.extractTime(data.event.start_datetime) : this.dateUtils.formatTimeForInput(now)), Validators.required],
       end_date: [data.event ? new Date(data.event.end_datetime) : endDate, Validators.required],
-      end_time: [data.initialEndTime || (data.event ? this.extractTime(data.event.end_datetime) : this.dateUtils.formatTimeForInput(endDate)), Validators.required],
+      end_time: [data.initialEndTime || (data.event ? this.dateUtils.extractTime(data.event.end_datetime) : this.dateUtils.formatTimeForInput(endDate)), Validators.required],
       location: [data.event?.location || ''],
       is_all_day: [data.event?.is_all_day || false],
       editable_by_attendees: [data.event?.editable_by_attendees || false],
@@ -93,14 +93,6 @@ export class EventDialogComponent implements OnInit {
     this.filteredEmployees = [...this.data.employees];
   }
 
-  private extractTime(datetime: string): string {
-    return this.dateUtils.extractTime(datetime);
-  }
-
-  private combineDateAndTime(date: Date, time: string): string {
-    return this.dateUtils.combineDateAndTime(date, time);
-  }
-
   onSave(): void {
     if (this.eventForm.valid) {
       const formValue = this.eventForm.value;
@@ -118,8 +110,8 @@ export class EventDialogComponent implements OnInit {
         endDate.setHours(23, 59, 59, 999);
         end_datetime = endDate.toISOString();
       } else {
-        start_datetime = this.combineDateAndTime(formValue.start_date, formValue.start_time);
-        end_datetime = this.combineDateAndTime(formValue.end_date, formValue.end_time);
+        start_datetime = this.dateUtils.combineDateAndTime(formValue.start_date, formValue.start_time);
+        end_datetime = this.dateUtils.combineDateAndTime(formValue.end_date, formValue.end_time);
       }
 
       const eventData = {

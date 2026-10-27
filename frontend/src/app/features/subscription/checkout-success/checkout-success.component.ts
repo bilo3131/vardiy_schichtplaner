@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -123,7 +123,6 @@ export class CheckoutSuccessComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
     private subscriptionService: SubscriptionService
   ) {}
 

@@ -23,9 +23,9 @@ WRITE_METHODS = ('POST', 'PUT', 'PATCH', 'DELETE')
 
 class SubscriptionLimitMiddleware(MiddlewareMixin):
     """
-    Middleware zur Prüfung der Subscription-Limits und Ablauf-Status.
-    - Blockiert Schreibzugriffe bei abgelaufenen Trials/Subscriptions
-    - Prüft Mitarbeiter- und Abteilungs-Limits bei POST-Anfragen
+    Middleware zur Prüfung des Subscription-Ablauf-Status.
+    Blockiert Schreibzugriffe bei abgelaufenen Trials/Subscriptions. Die Mitarbeiter- und
+    Abteilungs-Limits werden in den ViewSets geprüft (PermissionHelpers.check_subscription_limit).
     """
 
     def process_view(self, request, view_func, view_args, view_kwargs):
@@ -50,51 +50,20 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
             return None
 
         # Bei abgelaufener/inaktiver Subscription: Schreibzugriffe blockieren
-        if request.method in WRITE_METHODS:
-            if not subscription.is_active or subscription.is_expired(organization):
-                return Response(
-                    {
-                        'detail': (
-                            'Ihr Testzeitraum bzw. Abonnement ist abgelaufen. '
-                            'Bitte wählen Sie ein Abonnement, um fortzufahren.'
-                        ),
-                        'subscription_expired': True,
-                        'trial_end_date': str(subscription.trial_end_date) if subscription.trial_end_date else None,
-                        'subscription_end_date': str(subscription.subscription_end_date) if subscription.subscription_end_date else None,
-                    },
-                    status=status.HTTP_402_PAYMENT_REQUIRED,
-                )
-
-        # Nur bei POST-Requests Limits prüfen
-        if request.method != 'POST':
-            return None
-
-        # Prüfe Mitarbeiter-Limit
-        if '/api/v1/accounts/employees/' in path and path.endswith('/'):
-            if not subscription.can_add_employee(organization):
-                return Response(
-                    {
-                        'detail': f'Mitarbeiter-Limit erreicht. Ihr aktuelles Tier ({subscription.get_tier_display()}) erlaubt maximal {subscription.max_employees} Mitarbeiter.',
-                        'limit_reached': True,
-                        'current_count': subscription.get_current_employee_count(organization),
-                        'max_count': subscription.max_employees,
-                        'tier': subscription.tier
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-        # Prüfe Abteilungs-Limit
-        if '/api/v1/departments/' in path and path.endswith('/'):
-            if not subscription.can_add_department(organization):
-                return Response(
-                    {
-                        'detail': f'Abteilungs-Limit erreicht. Ihr aktuelles Tier ({subscription.get_tier_display()}) erlaubt maximal {subscription.max_departments} Abteilungen.',
-                        'limit_reached': True,
-                        'current_count': subscription.get_current_department_count(organization),
-                        'max_count': subscription.max_departments,
-                        'tier': subscription.tier
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
+        if request.method in WRITE_METHODS and (
+            not subscription.is_active or subscription.is_expired(organization)
+        ):
+            return Response(
+                {
+                    'detail': (
+                        'Ihr Testzeitraum bzw. Abonnement ist abgelaufen. '
+                        'Bitte wählen Sie ein Abonnement, um fortzufahren.'
+                    ),
+                    'subscription_expired': True,
+                    'trial_end_date': str(subscription.trial_end_date) if subscription.trial_end_date else None,
+                    'subscription_end_date': str(subscription.subscription_end_date) if subscription.subscription_end_date else None,
+                },
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
 
         return None

@@ -1,8 +1,11 @@
+from datetime import datetime, time, timedelta
+
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
 from accounts.models import User, Organization
-from .constants import VacationRequestStatus, ShiftStatus, ShiftSwapRequestStatus, SystemDefaults
+from .constants import (
+    VacationRequestStatus, ShiftStatus, ShiftSwapRequestStatus, SystemDefaults, WorkingTimeRules
+)
 
 
 class Department(models.Model):
@@ -295,9 +298,6 @@ class ShiftType(models.Model):
     
     def calculate_night_hours(self):
         """Berechnet die Nachtarbeitsstunden (23:00-06:00 Uhr)"""
-        from datetime import datetime, timedelta, time
-        from .constants import WorkingTimeRules
-        
         # Definiere Nachtzeit: 23:00-06:00
         night_start = time(WorkingTimeRules.NIGHT_SHIFT_START_HOUR, 0)
         night_end = time(WorkingTimeRules.NIGHT_SHIFT_END_HOUR, 0)
@@ -338,8 +338,6 @@ class ShiftType(models.Model):
     
     def calculate_break_duration(self):
         """Berechnet automatisch die Pausendauer basierend auf der Arbeitszeit"""
-        from datetime import datetime, timedelta
-        
         # Berechne die Dauer der Schicht
         start = datetime.combine(datetime.today(), self.start_time)
         end = datetime.combine(datetime.today(), self.end_time)
@@ -354,10 +352,9 @@ class ShiftType(models.Model):
         # Pausenregelung: 6,1-9h = 30min, >9h = 45min, <=6h = 0min
         if hours > 9:
             return 45
-        elif hours > 6:
+        if hours > 6:
             return 30
-        else:
-            return 0
+        return 0
     
     def save(self, *args, **kwargs):
         # Berechne empfohlene Pause
@@ -430,7 +427,6 @@ class Shift(models.Model):
     
     def get_duration_hours(self):
         """Berechnet die Dauer der Schicht in Stunden"""
-        from datetime import datetime, timedelta
         start = datetime.combine(self.date, self.start_time)
         end = datetime.combine(self.date, self.end_time)
         

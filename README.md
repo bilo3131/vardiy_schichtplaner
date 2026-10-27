@@ -1,437 +1,107 @@
-# Schichtplan - Digitale Schichtplanungssoftware
+# Vardiy – Schichtplaner
 
-Eine moderne, webbasierte Schichtplanungslösung für Unternehmen mit Angular Frontend und Django Backend.
+Webbasierte Schichtplanung für kleine und mittlere Unternehmen: Angular-Frontend, Django-REST-Backend, mandantenfähig (jede Organisation sieht nur ihre eigenen Daten).
 
-## 🚀 Features
+Live: https://schichtplaner.vardiy.de · Deployment und Serverbetrieb: [DEPLOYMENT.md](DEPLOYMENT.md)
 
-- **Schichtplanung**: Drag & Drop Schichtplanung mit visueller Wochenansicht
-- **Mitarbeiterverwaltung**: Umfassende Verwaltung von Mitarbeitern, Qualifikationen und Abteilungen
-- **Urlaubsverwaltung**: Digitale Urlaubsanträge mit Genehmigungsworkflow
-- **Abwesenheitstracking**: Verwaltung von Krankmeldungen, Urlaub und anderen Abwesenheiten
-- **Dashboard**: Übersichtliche KPIs und Statistiken für Manager
-- **Kalender**: Terminverwaltung für Meetings und Events
-- **Multi-Tenant**: Organisationsbasierte Trennung der Daten
-- **Rollensystem**: Feinabgestufte Berechtigungen (Admin, HR, Department Manager, Team Leader, Employee)
-- **Dark Mode**: Vollständige Unterstützung für dunkles Design
+## Funktionen
 
-## 📋 Voraussetzungen
+- **Schichtplan** – Wochenansicht mit Drag & Drop, Konfliktprüfung (Abwesenheit, Urlaub, 11 h Ruhezeit, Wochenstunden), Qualifikationsabgleich, Veröffentlichung mit E-Mail an alle Eingeteilten, PDF-Export
+- **Personal** – Mitarbeiter, Abteilungen, Qualifikationen, Schichttypen (inkl. Pausen- und Nachtstundenberechnung)
+- **Urlaub & Abwesenheiten** – Urlaubsanträge mit Genehmigung, Krankmeldungen, Kurzarbeit, Kalenderansicht
+- **Kalender** – Termine und Events mit Teilnehmern, Feiertage
+- **Dashboard** – persönliche Kennzahlen und Manager-Statistiken (Krankenstand, Planungsfortschritt, Auslastung)
+- **Abonnements** – Starter/Pro/Business mit Limits, Early-Access-Preise, Stripe-Checkout, Demo-Zugang
+- **Sonstiges** – Benachrichtigungen, Dark Mode, Tutorial je Rolle, automatische Abmeldung nach 15 min Inaktivität, installierbar als PWA
 
-### Backend
-- Python 3.11+
-- PostgreSQL 14+ (für Production)
-- pip
-- virtualenv (empfohlen)
+## Tech-Stack
 
-### Frontend
-- Node.js 18+
-- npm oder yarn
-- Angular CLI 18+
+| Bereich | Technik |
+|---|---|
+| Frontend | Angular 19 (Standalone Components), Angular Material, FullCalendar, jsPDF |
+| Backend | Python 3.12, Django 5.2, Django REST Framework (Token-Auth), Stripe |
+| Datenbank | PostgreSQL (Server), SQLite (lokal) |
+| Server | nginx, gunicorn, systemd auf Ubuntu |
 
-## 🛠️ Installation
+## Lokale Entwicklung
 
-### Backend Setup
+Voraussetzungen: Python 3.12, Node.js 20+.
 
-1. **Repository klonen & in Backend wechseln**
-   ```bash
-   cd backend
-   ```
+**Schnellstart (Windows):** `setup-local.bat` legt bei Bedarf das venv an, **löscht die lokale `db.sqlite3`**, migriert und erstellt einen Test-Admin (`admin` / `admin123`).
 
-2. **Virtuelle Umgebung erstellen**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   venv\Scripts\activate     # Windows
-   ```
+**Manuell:**
 
-3. **Dependencies installieren**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Umgebungsvariablen konfigurieren (Optional für Development)**
-   ```bash
-   cp .env.example .env
-   # Bearbeiten Sie .env mit Ihren Werten
-   ```
-
-5. **Datenbank migrieren**
-   ```bash
-   python manage.py migrate
-   ```
-
-6. **Superuser erstellen**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-7. **Development Server starten**
-   ```bash
-   python manage.py runserver
-   ```
-
-### Frontend Setup
-
-1. **In Frontend-Verzeichnis wechseln**
-   ```bash
-   cd frontend
-   ```
-
-2. **Dependencies installieren**
-   ```bash
-   npm install
-   ```
-
-3. **Development Server starten**
-   ```bash
-   ng serve
-   ```
-
-4. **Anwendung öffnen**
-   ```
-   http://localhost:4200
-   ```
-
-## 🚢 Production Deployment
-
-### Backend Production
-
-1. **Environment-Variablen setzen**
-   - Kopieren Sie `.env.example` zu `.env`
-   - Füllen Sie alle Production-Werte aus:
-     ```bash
-     DJANGO_SECRET_KEY=ihr-sicherer-secret-key
-     DJANGO_ALLOWED_HOSTS=ihre-domain.com,www.ihre-domain.com
-     DEBUG=False
-     DB_NAME=schichtplan
-     DB_USER=postgres
-     DB_PASSWORD=sicheres-passwort
-     DB_HOST=localhost
-     DB_PORT=5432
-     CORS_ALLOWED_ORIGINS=https://ihre-domain.com
-     CSRF_TRUSTED_ORIGINS=https://ihre-domain.com
-     ```
-
-2. **PostgreSQL Datenbank einrichten**
-   ```bash
-   psql -U postgres
-   CREATE DATABASE schichtplan;
-   CREATE USER schichtplan_user WITH PASSWORD 'sicheres_passwort';
-   GRANT ALL PRIVILEGES ON DATABASE schichtplan TO schichtplan_user;
-   \q
-   ```
-
-3. **Migrationen ausführen**
-   ```bash
-   python manage.py migrate --settings=schichtplan.settings_prod
-   ```
-
-4. **Static Files sammeln**
-   ```bash
-   python manage.py collectstatic --noinput --settings=schichtplan.settings_prod
-   ```
-
-5. **Superuser erstellen**
-   ```bash
-   python manage.py createsuperuser --settings=schichtplan.settings_prod
-   ```
-
-6. **Production Server mit Gunicorn**
-   ```bash
-   pip install gunicorn
-   gunicorn schichtplan.wsgi:application --bind 0.0.0.0:8000 --workers 3 --settings=schichtplan.settings_prod
-   ```
-
-### Frontend Production
-
-1. **Production Build erstellen**
-   ```bash
-   cd frontend
-   ng build --configuration production
-   ```
-
-2. **Build-Artefakte deployen**
-   - Dateien aus `dist/frontend/browser` auf Webserver kopieren
-   - Nginx als Reverse Proxy konfigurieren
-
-### Nginx Konfiguration (Beispiel)
-
-```nginx
-server {
-    listen 80;
-    server_name ihre-domain.com;
-
-    # Redirect zu HTTPS
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name ihre-domain.com;
-
-    ssl_certificate /path/to/ssl/cert.pem;
-    ssl_certificate_key /path/to/ssl/key.pem;
-
-    # Frontend
-    location / {
-        root /var/www/schichtplan/frontend;
-        try_files $uri $uri/ /index.html;
-        add_header Cache-Control "no-cache";
-    }
-
-    # Backend API
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_redirect off;
-    }
-
-    # Django Admin
-    location /admin/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # Static Files
-    location /static/ {
-        alias /path/to/backend/staticfiles/;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # Media Files
-    location /media/ {
-        alias /path/to/backend/mediafiles/;
-        expires 30d;
-    }
-}
-```
-
-### Systemd Service (Optional)
-
-Erstellen Sie `/etc/systemd/system/schichtplan.service`:
-
-```ini
-[Unit]
-Description=Schichtplan Django Application
-After=network.target
-
-[Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/path/to/backend
-Environment="DJANGO_SETTINGS_MODULE=schichtplan.settings_prod"
-ExecStart=/path/to/venv/bin/gunicorn schichtplan.wsgi:application --bind 127.0.0.1:8000 --workers 3
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Aktivieren und starten:
 ```bash
-sudo systemctl enable schichtplan
-sudo systemctl start schichtplan
-sudo systemctl status schichtplan
-```
-
-## 🔒 Sicherheits-Checkliste vor Go-Live
-
-- [ ] `DEBUG = False` in Production Settings
-- [ ] Sichere `SECRET_KEY` generieren (min. 50 Zeichen, zufällig)
-- [ ] HTTPS erzwingen (`SECURE_SSL_REDIRECT = True`)
-- [ ] `ALLOWED_HOSTS` nur auf Production-Domains beschränken
-- [ ] `CORS_ALLOWED_ORIGINS` auf Production-Domain setzen
-- [ ] Starkes Datenbank-Passwort (min. 20 Zeichen)
-- [ ] PostgreSQL statt SQLite verwenden
-- [ ] Firewall konfigurieren (nur Ports 80, 443, 22)
-- [ ] SSL-Zertifikat installieren (Let's Encrypt empfohlen)
-- [ ] Regelmäßige Backups einrichten (täglich)
-- [ ] Logs-Verzeichnis erstellen und überwachen
-- [ ] Rate Limiting aktivieren
-- [ ] CSRF und XSS Protection aktiv
-
-## 📚 Projektstruktur
-
-```
-schichtplan/
-├── backend/
-│   ├── accounts/              # User & Organization Management
-│   ├── shifts/                # Shifts, Vacation, Absences, Events
-│   ├── subscriptions/         # Subscription & Billing
-│   ├── schichtplan/
-│   │   ├── settings.py        # Development Settings
-│   │   ├── settings_prod.py   # Production Settings
-│   │   └── wsgi.py
-│   ├── .env.example           # Environment Template
-│   ├── manage.py
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── core/          # Services, Guards, Interceptors, Models
-│   │   │   ├── features/      # Feature Modules (Dashboard, Shifts, etc.)
-│   │   │   ├── shared/        # Shared Components, Dialogs, Pipes
-│   │   │   ├── app.config.ts
-│   │   │   └── app.routes.ts
-│   │   ├── environments/
-│   │   │   ├── environment.ts      # Development Config
-│   │   │   └── environment.prod.ts # Production Config
-│   │   └── styles/
-│   ├── angular.json
-│   └── package.json
-│
-└── README.md
-```
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
+# Backend (Terminal 1)
 cd backend
-python manage.py test
-```
+python -m venv env
+env\Scripts\activate          # Linux/macOS: source env/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python create_test_user.py    # Admin "admin" / "admin123" mit Testfirma
+python manage.py runserver    # http://localhost:8000
 
-### Frontend Tests
-```bash
+# Frontend (Terminal 2)
 cd frontend
-npm test
+npm install
+npx ng serve                  # http://localhost:4200
 ```
 
-### E2E Tests
+Lokal werden E-Mails nur in der Backend-Konsole ausgegeben. Für Stripe und SMTP siehe `backend/.env.example`.
+
+## Projektstruktur
+
+```
+backend/
+  accounts/         Benutzer, Organisationen, Login, Demo-Zugang
+  shifts/           Schichten, Mitarbeiter, Urlaub, Abwesenheiten, Events, Benachrichtigungen
+  subscriptions/    Abonnements, Limits, Stripe
+  schichtplan/      Django-Projekt (settings.py = lokale Entwicklung)
+frontend/src/app/
+  core/             Services, Guards, Interceptors, Models, Konstanten (z. B. roles.constants.ts)
+  features/         Seiten (Dashboard, Schichtplan, Personal, Urlaub, ...)
+  shared/           Dialoge und wiederverwendbare Komponenten
+deploy/             Deploy-, Backup- und Rollback-Skripte, Referenzkopien der Server-Konfiguration
+setup-local.bat     Lokales Setup (Windows)
+```
+
+## Rollen
+
+| Rolle | Zugriff |
+|---|---|
+| Administrator, Personalwesen | alles, inkl. Abteilungen und Abonnement |
+| Abteilungsleiter | Schichtplan, Schichttypen, Personal, Qualifikationen, Urlaub, Abwesenheiten |
+| Teamleiter, Gruppenleiter | Schichtplan, Personal, Qualifikationen, Urlaub, Abwesenheiten |
+| Mitarbeiter | Dashboard, Kalender, eigener Schichtplan, eigene Urlaubsanträge |
+
+Rollengruppen und Bezeichnungen sind zentral in `frontend/src/app/core/constants/roles.constants.ts` und `backend/shifts/constants.py` definiert.
+
+**Neue Mitarbeiter** erhalten automatisch ein Login: Benutzername `vorname.nachname` (Umlaute umgeschrieben, bei Duplikaten mit Nummer), Startpasswort `Abc123` (`EmployeeConstants.DEFAULT_PASSWORD` in `backend/shifts/serializers.py`). Admin/HR können Passwörter in der Personalliste zurücksetzen. Mitarbeiter ändern ihr Passwort im Benutzermenü.
+
+## API
+
+Alle Endpunkte liegen unter `/api/v1/` und erwarten `Authorization: Token <token>` (außer Login).
+
+| Pfad | Inhalt |
+|---|---|
+| `accounts/login/`, `logout/`, `demo-login/` | Anmeldung |
+| `accounts/users/me/`, `users/change_password/`, `users/complete_tutorial/` | eigenes Profil |
+| `shifts/shifts/` | Schichten, dazu `publish_week/` und `validate_compliance/` |
+| `shifts/employees/`, `departments/`, `qualifications/`, `shift-types/` | Stammdaten |
+| `shifts/vacation-requests/` (inkl. `approve/`, `reject/`), `absences/` | Urlaub und Abwesenheiten |
+| `shifts/events/`, `holidays/`, `notifications/` | Kalender und Benachrichtigungen |
+| `subscriptions/my_subscription/`, `create-checkout-session/`, `checkout-success/`, `webhook/stripe/` | Abonnement und Stripe |
+
+Das Backend stellt außerdem Endpunkte für Schichttausch, Schichtvorlagen und Verfügbarkeiten bereit, für die es noch keine Oberfläche gibt.
+
+## Tests und Checks
+
 ```bash
-cd frontend
-npm run e2e
+cd frontend && npx ng test --watch=false   # Unit-Tests (Karma)
+cd frontend && npx ng build                # Build inkl. Template-Typprüfung
+cd backend  && python manage.py check      # Django-Systemcheck
 ```
 
-## 📝 API Dokumentation
+## Lizenz
 
-Die REST API ist unter `/api/` erreichbar:
-
-### Authentifizierung
-- `POST /api/auth/login/` - Login
-- `POST /api/auth/logout/` - Logout
-- `POST /api/auth/register/` - Registrierung
-- `POST /api/auth/change-password/` - Passwort ändern
-
-### Mitarbeiter & Organisation
-- `GET /api/employees/` - Mitarbeiter-Liste
-- `POST /api/employees/` - Mitarbeiter erstellen
-- `GET /api/employees/{id}/` - Mitarbeiter-Details
-- `PUT /api/employees/{id}/` - Mitarbeiter aktualisieren
-- `DELETE /api/employees/{id}/` - Mitarbeiter löschen
-
-### Schichten
-- `GET /api/shifts/` - Schichten-Liste (Filter: `?start_date=2026-02-03&end_date=2026-02-09`)
-- `POST /api/shifts/` - Schicht erstellen
-- `PUT /api/shifts/{id}/` - Schicht aktualisieren
-- `DELETE /api/shifts/{id}/` - Schicht löschen
-- `POST /api/shifts/publish-week/` - Woche veröffentlichen
-
-### Urlaubsanträge
-- `GET /api/vacation-requests/` - Urlaubsanträge
-- `POST /api/vacation-requests/` - Antrag erstellen
-- `POST /api/vacation-requests/{id}/approve/` - Genehmigen
-- `POST /api/vacation-requests/{id}/reject/` - Ablehnen
-
-### Weitere Endpoints
-- `/api/shift-types/` - Schichttypen
-- `/api/departments/` - Abteilungen
-- `/api/qualifications/` - Qualifikationen
-- `/api/absences/` - Abwesenheiten
-- `/api/events/` - Termine/Events
-
-## 🔄 Backup & Restore
-
-### Datenbank-Backup
-```bash
-# Backup erstellen
-pg_dump -U schichtplan_user -h localhost schichtplan > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# Mit Kompression
-pg_dump -U schichtplan_user -h localhost schichtplan | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
-```
-
-### Datenbank-Restore
-```bash
-# Restore
-psql -U schichtplan_user -h localhost schichtplan < backup_20260203_120000.sql
-
-# Restore mit Kompression
-gunzip < backup_20260203_120000.sql.gz | psql -U schichtplan_user -h localhost schichtplan
-```
-
-### Automatisches Backup (Crontab)
-```bash
-# Täglich um 2 Uhr morgens
-0 2 * * * /usr/bin/pg_dump -U schichtplan_user schichtplan | gzip > /backups/schichtplan_$(date +\%Y\%m\%d).sql.gz
-
-# Alte Backups löschen (älter als 30 Tage)
-0 3 * * * find /backups -name "schichtplan_*.sql.gz" -mtime +30 -delete
-```
-
-## 📊 Monitoring & Logs
-
-### Logs überwachen
-```bash
-# Django Logs
-tail -f backend/logs/django.log
-
-# Nginx Access Logs
-tail -f /var/log/nginx/access.log
-
-# Nginx Error Logs
-tail -f /var/log/nginx/error.log
-
-# Gunicorn Logs
-journalctl -u schichtplan -f
-```
-
-### Performance Monitoring
-- Verwenden Sie Tools wie Sentry für Error Tracking
-- New Relic oder DataDog für Performance Monitoring
-- PostgreSQL Slow Query Log aktivieren
-
-## 🐛 Troubleshooting
-
-### Häufige Probleme
-
-**Problem: CORS Errors im Browser**
-```
-Lösung: CORS_ALLOWED_ORIGINS in settings.py oder .env korrekt setzen
-```
-
-**Problem: 502 Bad Gateway**
-```
-Lösung: Gunicorn-Service überprüfen (systemctl status schichtplan)
-```
-
-**Problem: Static Files werden nicht geladen**
-```
-Lösung: python manage.py collectstatic ausführen und Nginx Config prüfen
-```
-
-**Problem: Database Connection Error**
-```
-Lösung: PostgreSQL läuft? Credentials in .env korrekt?
-```
-
-## 🤝 Support & Kontakt
-
-Bei Fragen oder Problemen:
-- Dokumentation durchlesen
-- Logs prüfen
-- Support kontaktieren
-
-## 📄 Lizenz
-
-Proprietary - Alle Rechte vorbehalten
-
----
-
-**Version:** 1.0.0  
-**Letzte Aktualisierung:** Februar 2026  
-**Entwickelt für:** Moderne Schichtplanungsverwaltung
+Proprietär – alle Rechte vorbehalten.

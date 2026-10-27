@@ -86,21 +86,21 @@
         <div class="hours-row">
           <mat-form-field appearance="outline">
             <mat-label>Min. Wochenstunden</mat-label>
-            <input matInput type="number" formControlName="min_hours_per_week" min="0" [readonly]="!canEditWorkingHours()">
+            <input matInput type="number" formControlName="min_hours_per_week" min="0">
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Max. Wochenstunden</mat-label>
-            <input matInput type="number" formControlName="max_hours_per_week" min="0" max="60" [readonly]="!canEditWorkingHours()">
+            <input matInput type="number" formControlName="max_hours_per_week" min="0" max="60">
           </mat-form-field>
         </div>
         <div class="hours-row">
           <mat-form-field appearance="outline">
             <mat-label>Überstunden (Stunden)</mat-label>
-            <input matInput type="number" formControlName="overtime_hours_h" [readonly]="!canEditWorkingHours()">
+            <input matInput type="number" formControlName="overtime_hours_h">
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Überstunden (Minuten)</mat-label>
-            <input matInput type="number" formControlName="overtime_hours_min" min="0" max="59" [readonly]="!canEditWorkingHours()">
+            <input matInput type="number" formControlName="overtime_hours_min" min="0" max="59">
             <mat-hint>Aktueller Überstundensaldo</mat-hint>
           </mat-form-field>
         </div>

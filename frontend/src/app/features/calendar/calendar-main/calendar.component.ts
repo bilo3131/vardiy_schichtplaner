@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, signal } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -22,6 +22,7 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { DepartmentService } from '../../../core/services/department.service';
 import { HolidayService } from '../../../core/services/holiday.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { DateUtilsService } from '../../../core/services/date-utils.service';
 import { SnackbarService } from '../../../core/services/snackbar.service';
 import { MatDialog } from '@angular/material/dialog';
 import { EventDialogComponent } from '../../../shared/dialogs/event-dialog/event-dialog.component';
@@ -95,6 +96,7 @@ export class CalendarComponent implements OnInit {
     private holidayService: HolidayService,
     private authService: AuthService,
     private dialog: MatDialog,
+    private dateUtils: DateUtilsService,
     private snackbar: SnackbarService
   ) {}
 
@@ -125,7 +127,7 @@ export class CalendarComponent implements OnInit {
     });
   }
 
-  handleDatesSet(dateInfo: any): void {
+  handleDatesSet(): void {
     // Wird aufgerufen wenn sich der angezeigte Zeitraum ändert
     // Verwende setTimeout um ExpressionChangedAfterItHasBeenCheckedError zu vermeiden
     setTimeout(() => {
@@ -147,8 +149,8 @@ export class CalendarComponent implements OnInit {
     const start = calendarApi.view.activeStart;
     const end = calendarApi.view.activeEnd;
     
-    const startDate = this.formatDate(start);
-    const endDate = this.formatDate(end);
+    const startDate = this.dateUtils.formatDateISO(start);
+    const endDate = this.dateUtils.formatDateISO(end);
     
     // Lade Events
     const params: any = {
@@ -251,10 +253,10 @@ export class CalendarComponent implements OnInit {
     const clickedDate = dateClickInfo.date;
     const isAllDay = dateClickInfo.allDay;
     
-    const startTime = isAllDay ? '09:00' : this.formatTimeForInput(clickedDate);
+    const startTime = isAllDay ? '09:00' : this.dateUtils.formatTimeForInput(clickedDate);
     const endDate = new Date(clickedDate);
     endDate.setHours(clickedDate.getHours() + 1);
-    const endTime = isAllDay ? '10:00' : this.formatTimeForInput(endDate);
+    const endTime = isAllDay ? '10:00' : this.dateUtils.formatTimeForInput(endDate);
     
     this.openEventDialog(undefined, clickedDate, startTime, endTime);
   }
@@ -280,7 +282,7 @@ export class CalendarComponent implements OnInit {
         this.snackbar.success('Event verschoben');
         this.loadCalendarData();
       },
-      error: (error) => {
+      error: () => {
         dropInfo.revert();
         this.snackbar.error('Fehler beim Verschieben des Events');
       }
@@ -306,7 +308,7 @@ export class CalendarComponent implements OnInit {
         this.snackbar.success('Event-Dauer geändert');
         this.loadCalendarData();
       },
-      error: (error) => {
+      error: () => {
         resizeInfo.revert();
         this.snackbar.error('Fehler beim Ändern der Event-Dauer');
       }
@@ -339,7 +341,7 @@ export class CalendarComponent implements OnInit {
               this.snackbar.success('Event aktualisiert');
               this.loadCalendarData();
             },
-            error: (error) => {
+            error: () => {
               this.snackbar.error('Fehler beim Aktualisieren des Events');
             }
           });
@@ -350,7 +352,7 @@ export class CalendarComponent implements OnInit {
               this.snackbar.success('Event erstellt');
               this.loadCalendarData();
             },
-            error: (error) => {
+            error: () => {
               this.snackbar.error('Fehler beim Erstellen des Events');
             }
           });
@@ -364,7 +366,7 @@ export class CalendarComponent implements OnInit {
     const currentUserId = currentUser?.id;
     const currentEmployeeId = currentUser?.employee_profile?.id;
     
-    const dialogRef = this.dialog.open(EventDetailDialogComponent, {
+    this.dialog.open(EventDetailDialogComponent, {
       width: '600px',
       data: {
         event,
@@ -400,28 +402,13 @@ export class CalendarComponent implements OnInit {
             this.snackbar.success('Event gelöscht');
             this.loadCalendarData();
           },
-          error: (error) => {
+          error: () => {
             this.snackbar.error('Fehler beim Löschen des Events');
           }
         });
       }
     });
   }
-
-  private formatTimeForInput(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }
-
-  private formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-
 
   closeInfoBox(): void {
     this.showInfoBox = false;

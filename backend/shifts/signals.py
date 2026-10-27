@@ -1,8 +1,17 @@
-from django.db.models.signals import post_save, post_delete, pre_save, m2m_changed
+import logging
+
+from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
 from django.core.mail import send_mail
 from django.conf import settings
-from .models import Shift, VacationRequest, Notification, Event
+
+from accounts.models import User
+from .models import Employee, VacationRequest, Notification, Event
+
+logger = logging.getLogger(__name__)
+
+# Schicht-Benachrichtigungen werden zentral in ShiftViewSet.publish_week erstellt,
+# um mehrfache Benachrichtigungen während der Planung zu vermeiden.
 
 
 def send_notification_email(notification):
@@ -20,20 +29,8 @@ def send_notification_email(notification):
         )
         notification.is_emailed = True
         notification.save(update_fields=['is_emailed'])
-    except Exception as e:
-        print(f"Fehler beim Versenden der E-Mail: {e}")
-
-
-@receiver(pre_save, sender=Shift)
-def track_shift_changes(sender, instance, **kwargs):
-    """Speichere den vorherigen Zustand der Schicht für Änderungserkennung"""
-    # Diese Funktion bleibt leer - wird nicht mehr für Benachrichtigungen verwendet
-    pass
-
-
-# Schicht-Benachrichtigungen wurden deaktiviert
-# Die Benachrichtigungslogik erfolgt jetzt zentral in der publish_week Action
-# um mehrfache Benachrichtigungen während der Planung zu vermeiden
+    except Exception:
+        logger.exception("Fehler beim Versenden der E-Mail an %s", notification.user.email)
 
 
 @receiver(post_save, sender=VacationRequest)
@@ -42,7 +39,6 @@ def notify_vacation_status_change(sender, instance, created, **kwargs):
     if created:
         # Benachrichtige Manager über neue Urlaubsanfrage
         # Finde alle Admin und HR Benutzer der Organisation
-        from accounts.models import User
         managers = User.objects.filter(
             organization=instance.employee.user.organization,
             role__in=['admin', 'hr']
@@ -90,11 +86,9 @@ def notify_event_attendees(sender, instance, action, pk_set, **kwargs):
     """Benachrichtige Teilnehmer bei Event-Einladungen"""
     if action == 'post_add':
         # Neue Teilnehmer wurden hinzugefügt
-        from accounts.models import User
         
         for employee_id in pk_set:
             try:
-                from .models import Employee
                 employee = Employee.objects.get(id=employee_id)
                 user = employee.user
                 
@@ -108,8 +102,8 @@ def notify_event_attendees(sender, instance, action, pk_set, **kwargs):
                     message=f'Sie wurden zu "{instance.title}" am {event_date} ({event_time}) eingeladen.{" Ort: " + instance.location if instance.location else ""}',
                     related_event=instance
                 )
-            except Exception as e:
-                print(f"Fehler beim Erstellen der Event-Benachrichtigung: {e}")
+            except Exception:
+                logger.exception("Fehler beim Erstellen der Event-Benachrichtigung für Mitarbeiter %s", employee_id)
 
 
 @receiver(post_save, sender=Event)

@@ -6,7 +6,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { Event, Employee, Department } from '../../../core/models';
-import { EventDialogComponent } from '../event-dialog/event-dialog.component';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { DateUtilsService } from '../../../core/services/date-utils.service';
 

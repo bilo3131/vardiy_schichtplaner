@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.utils import timezone
 from decimal import Decimal
 

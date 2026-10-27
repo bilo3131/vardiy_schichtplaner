@@ -1,0 +1,17 @@
+# Referenzkopie von /etc/systemd/system/gunicorn-vardiy.service (Stand: Oktober 2026)
+[Unit]
+Description=Gunicorn daemon for Vardiy
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/schichtplaner/backend
+Environment="PATH=/var/www/schichtplaner/backend/venv/bin"
+ExecStart=/var/www/schichtplaner/backend/venv/bin/gunicorn \
+          --workers 3 \
+          --bind 127.0.0.1:8000 \
+          schichtplan.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

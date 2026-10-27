@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -26,10 +26,10 @@ import { DateUtilsService } from '../../../core/services/date-utils.service';
   templateUrl: './shift-dialog.component.html',
   styleUrls: ['./shift-dialog.component.scss']
 })
-export class ShiftDialogComponent implements OnInit {
+export class ShiftDialogComponent {
   form: FormGroup;
-  currentYear = 2026;
-  currentWeek = 5;
+  currentYear: number;
+  currentWeek: number;
 
   constructor(
     private fb: FormBuilder,
@@ -49,21 +49,9 @@ export class ShiftDialogComponent implements OnInit {
       };
     }
   ) {
-    // Calculate current week directly in constructor
-    if (data.currentWeek) {
-      this.currentYear = data.currentWeek.year;
-      this.currentWeek = data.currentWeek.week;
-    } else {
-      const today = new Date();
-      const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-      
-      this.currentYear = d.getUTCFullYear();
-      this.currentWeek = weekNo;
-    }
+    const { year, week } = data.currentWeek ?? this.getWeekNumber(new Date());
+    this.currentYear = year;
+    this.currentWeek = week;
 
     // Determine weekday checkboxes based on prefilled date
     let weekdayDefaults: any = {
@@ -98,9 +86,6 @@ export class ShiftDialogComponent implements OnInit {
       employees: [[], Validators.required],
       notes: ['']
     });
-  }
-
-  ngOnInit(): void {
   }
 
   getWeekNumber(date: Date): { year: number; week: number } {

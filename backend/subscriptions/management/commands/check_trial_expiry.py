@@ -28,7 +28,6 @@ class Command(BaseCommand):
         today = timezone.now().date()
 
         from accounts.models import Organization
-        from subscriptions.models import Subscription
 
         # Finde alle Orgs mit abgelaufenem Trial (is_trial=True, trial_end_date < heute)
         expired_trial_orgs = Organization.objects.filter(

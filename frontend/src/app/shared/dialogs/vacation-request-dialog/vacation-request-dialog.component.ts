@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, Injectable } from '@angular/core';
+import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -8,40 +8,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
-import { MatNativeDateModule, MAT_DATE_LOCALE, NativeDateAdapter, DateAdapter, MAT_DATE_FORMATS } from '@angular/material/core';
+import { MatNativeDateModule } from '@angular/material/core';
 import { VacationRequest, Employee } from '../../../core/models';
 import { AuthService } from '../../../core/services/auth.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DateUtilsService } from '../../../core/services/date-utils.service';
-
-export const DE_DATE_FORMATS = {
-  parse: {
-    dateInput: 'DD.MM.YYYY',
-  },
-  display: {
-    dateInput: 'DD.MM.YYYY',
-    monthYearLabel: 'MMM YYYY',
-    dateA11yLabel: 'LL',
-    monthYearA11yLabel: 'MMMM YYYY',
-  },
-};
-
-@Injectable()
-class CustomDateAdapter extends NativeDateAdapter {
-  override format(date: Date, displayFormat: Object): string {
-    if (displayFormat === 'DD.MM.YYYY') {
-      const day = date.getDate();
-      const month = date.getMonth() + 1;
-      const year = date.getFullYear();
-      return `${this._to2digit(day)}.${this._to2digit(month)}.${year}`;
-    }
-    return date.toDateString();
-  }
-
-  private _to2digit(n: number) {
-    return ('00' + n).slice(-2);
-  }
-}
+import { ADMIN_ROLES } from '../../../core/constants/roles.constants';
+import { GERMAN_DATE_PROVIDERS } from '../../../core/utils/german-date-adapter';
 
 @Component({
   selector: 'app-vacation-request-dialog',
@@ -58,11 +31,7 @@ class CustomDateAdapter extends NativeDateAdapter {
     MatSelectModule,
     MatIconModule
   ],
-  providers: [
-    { provide: MAT_DATE_LOCALE, useValue: 'de-DE' },
-    { provide: DateAdapter, useClass: CustomDateAdapter },
-    { provide: MAT_DATE_FORMATS, useValue: DE_DATE_FORMATS }
-  ],
+  providers: GERMAN_DATE_PROVIDERS,
   templateUrl: './vacation-request-dialog.component.html',
   styleUrls: ['./vacation-request-dialog.component.scss']
 })
@@ -106,9 +75,9 @@ export class VacationRequestDialogComponent implements OnInit {
       next: (response) => {
         const allEmployees = response.results || response;
         const currentUserRole = this.authService.currentUserValue?.role;
-        
+
         // Admin und HR sehen alle Mitarbeiter, andere nur Mitarbeiter mit Rolle 'employee'
-        if (currentUserRole === 'admin' || currentUserRole === 'hr') {
+        if (currentUserRole && ADMIN_ROLES.includes(currentUserRole)) {
           this.employees = allEmployees;
         } else {
           // Nur Mitarbeiter mit der Rolle 'employee' anzeigen

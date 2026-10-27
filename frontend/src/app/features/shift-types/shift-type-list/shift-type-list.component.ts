@@ -5,9 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { ShiftService } from '../../../core/services/shift.service';
 import { ShiftType } from '../../../core/models';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner.component';
@@ -15,7 +13,7 @@ import { ShiftTypeDialogComponent } from '../../../shared/dialogs/shift-type-dia
 import { ShiftTypeDetailDialogComponent } from '../../../shared/dialogs/shift-type-detail-dialog/shift-type-detail-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/dialogs/confirm-dialog/confirm-dialog.component';
 import { DashboardFilterService } from '../../../core/services/dashboard-filter.service';
-import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
+import { SnackbarService } from '../../../core/services/snackbar.service';
 
 @Component({
   selector: 'app-shift-type-list',
@@ -27,7 +25,6 @@ import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
     MatIconModule,
     MatTableModule,
     MatChipsModule,
-    MatSnackBarModule,
     LoadingSpinnerComponent
   ],
   templateUrl: './shift-type-list.component.html',
@@ -37,11 +34,12 @@ export class ShiftTypeListComponent implements OnInit {
   shiftTypes: ShiftType[] = [];
   loading = false;
   displayedColumns = ['name', 'department', 'start_time', 'end_time', 'color', 'break_duration', 'night_hours', 'actions'];
+  showInfoBox = false;
 
   constructor(
     private shiftService: ShiftService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar,
+    private snackbar: SnackbarService,
     private dashboardFilterService: DashboardFilterService
   ) {}
 
@@ -103,11 +101,11 @@ export class ShiftTypeListComponent implements OnInit {
     this.shiftService.createShiftType(shiftTypeData).subscribe({
       next: () => {
         this.loadShiftTypes();
-        this.showSuccessMessage('Schichttyp erfolgreich erstellt');
+        this.snackbar.success('Schichttyp erfolgreich erstellt');
       },
       error: (error) => {
         const errorMessage = this.extractShiftTypeErrorMessage(error, 'Fehler beim Erstellen des Schichttyps');
-        this.showErrorMessage(errorMessage);
+        this.snackbar.error(errorMessage);
       }
     });
   }
@@ -116,11 +114,11 @@ export class ShiftTypeListComponent implements OnInit {
     this.shiftService.updateShiftType(id, shiftTypeData).subscribe({
       next: () => {
         this.loadShiftTypes();
-        this.showSuccessMessage('Schichttyp erfolgreich aktualisiert');
+        this.snackbar.success('Schichttyp erfolgreich aktualisiert');
       },
       error: (error) => {
         const errorMessage = this.extractShiftTypeErrorMessage(error, 'Fehler beim Aktualisieren des Schichttyps');
-        this.showErrorMessage(errorMessage);
+        this.snackbar.error(errorMessage);
       }
     });
   }
@@ -141,11 +139,11 @@ export class ShiftTypeListComponent implements OnInit {
         this.shiftService.deleteShiftType(id).subscribe({
           next: () => {
             this.loadShiftTypes();
-            this.showSuccessMessage('Schichttyp erfolgreich gelöscht');
+            this.snackbar.success('Schichttyp erfolgreich gelöscht');
           },
           error: (error) => {
             const errorMessage = this.extractShiftTypeErrorMessage(error, 'Fehler beim Löschen des Schichttyps');
-            this.showErrorMessage(errorMessage);
+            this.snackbar.error(errorMessage);
           }
         });
       }
@@ -173,20 +171,6 @@ export class ShiftTypeListComponent implements OnInit {
     return `${h}:${m.toString().padStart(2, '0')} h`;
   }
 
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'OK', { 
-      duration: UI_CONSTANTS.SNACKBAR.DURATION, 
-      panelClass: ['success-snackbar'] 
-    });
-  }
-
-  private showErrorMessage(message: string): void {
-    this.snackBar.open(message, 'OK', { 
-      duration: UI_CONSTANTS.SNACKBAR.ERROR_DURATION, 
-      panelClass: ['error-snackbar'] 
-    });
-  }
-
   private extractShiftTypeErrorMessage(error: any, defaultMessage: string): string {
     if (error.status === 500 && error.error?.detail?.includes('UNIQUE constraint')) {
       return 'Ein Schichttyp mit diesem Namen existiert bereits';
@@ -198,8 +182,6 @@ export class ShiftTypeListComponent implements OnInit {
     
     return error.error?.detail || defaultMessage;
   }
-
-  showInfoBox = false;
 
   closeInfoBox(): void {
     this.showInfoBox = false;

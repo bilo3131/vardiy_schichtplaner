@@ -3,12 +3,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
-from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from .models import Subscription, PaymentRecord
-from .serializers import SubscriptionSerializer, SubscriptionUpdateSerializer
+from .serializers import SubscriptionSerializer
 from .permissions import IsAdminOrHR
 
 

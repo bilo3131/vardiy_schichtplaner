@@ -74,10 +74,10 @@ class OrganizationAdmin(admin.ModelAdmin):
         details = [
             f"Tier: {sub.get_tier_display()}",
             f"Early-Access: {'Ja' if obj.is_early_access else 'Nein'}",
-            f"",
+            "",
             f"Mitarbeiter: {emp_count} / {sub.max_employees if sub.max_employees != -1 else '∞'}",
             f"Abteilungen: {dept_count} / {sub.max_departments if sub.max_departments != -1 else '∞'}",
-            f"",
+            "",
             f"Kosten: {cost}€/Monat",
         ]
         

@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -5,7 +7,6 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.core.validators import validate_email
@@ -104,7 +105,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         
         # Erstelle Token für automatisches Login
-        token, created = Token.objects.get_or_create(user=user)
+        token, _ = Token.objects.get_or_create(user=user)
         
         return Response({
             'user': UserSerializer(user).data,
@@ -130,8 +131,7 @@ class LoginView(generics.GenericAPIView):
         
         if user is not None:
             # WICHTIG: Kein login() call - nur Token für API!
-            # login(request, user)  # <- ENTFERNT
-            token, created = Token.objects.get_or_create(user=user)
+            token, _ = Token.objects.get_or_create(user=user)
             
             return Response({
                 'user': UserSerializer(user).data,
@@ -157,7 +157,7 @@ class LogoutView(generics.GenericAPIView):
                 {'message': 'Logout erfolgreich.'},
                 status=status.HTTP_200_OK
             )
-        except Exception as e:
+        except Exception:
             return Response(
                 {'message': 'Logout erfolgreich.'},
                 status=status.HTTP_200_OK
@@ -205,10 +205,8 @@ class DemoLoginView(APIView):
             )
 
         # Demo-User für diese E-Mail finden oder erstellen
-        # Username aus E-Mail ableiten (sanitized)
+        # Username aus E-Mail ableiten (Sonderzeichen entfernen)
         base_username = f"demo_{email.split('@')[0].lower()[:30]}"
-        # Sonderzeichen entfernen
-        import re
         safe_username = re.sub(r'[^a-z0-9_]', '_', base_username)
 
         user, created = User.objects.get_or_create(

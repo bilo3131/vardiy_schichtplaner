@@ -1,11 +1,18 @@
+import logging
+
+from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
+
+from accounts.models import User
+from accounts.serializers import UserSerializer
 from .models import (
     Department, Qualification, Employee, Availability, VacationRequest,
     ShiftType, Shift, ShiftSwapRequest, AbsenceRecord,
     ShiftTemplate, ShiftTemplateEntry, Notification, Holiday, Event
 )
-from accounts.serializers import UserSerializer
 from .constants import VacationRequestStatus
+
+logger = logging.getLogger(__name__)
 
 
 # Constants
@@ -29,8 +36,6 @@ def sanitize_username(text):
 
 def generate_unique_username(first_name, last_name, email):
     """Generate a unique username from name or email"""
-    from accounts.models import User
-    
     if first_name and last_name:
         username_base = f"{first_name.lower()}.{last_name.lower()}"
     else:
@@ -116,9 +121,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
     
     def _create_user_for_employee(self, first_name, last_name, email, role):
         """Create a new user account for the employee"""
-        from accounts.models import User
-        from django.contrib.auth.hashers import make_password
-        
         username = generate_unique_username(first_name, last_name, email)
         
         return User.objects.create(
@@ -232,11 +234,11 @@ class VacationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'approved_by']
     
     def validate(self, attrs):
-        if attrs.get('start_date') and attrs.get('end_date'):
-            if attrs['start_date'] > attrs['end_date']:
-                raise serializers.ValidationError(
-                    "Das Startdatum muss vor dem Enddatum liegen."
-                )
+        start_date, end_date = attrs.get('start_date'), attrs.get('end_date')
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError(
+                "Das Startdatum muss vor dem Enddatum liegen."
+            )
         return attrs
 
 
@@ -297,8 +299,6 @@ class ShiftSerializer(serializers.ModelSerializer):
             if required_quals and not required_quals.issubset(employee_quals):
                 missing_quals = required_quals - employee_quals
                 # Nur eine Warnung loggen, aber nicht verhindern
-                import logging
-                logger = logging.getLogger(__name__)
                 logger.warning(
                     f"Mitarbeiter {attrs['employee'].id} fehlen Qualifikationen: "
                     f"{', '.join([q.name for q in missing_quals])}"
@@ -306,7 +306,6 @@ class ShiftSerializer(serializers.ModelSerializer):
         
         # Prüfe ob Mitarbeiter genehmigten Urlaub hat
         if attrs.get('employee') and attrs.get('date'):
-            from .models import VacationRequest
             shift_date = attrs['date']
             
             # Prüfe auf genehmigte Urlaubsanträge für dieses Datum
@@ -324,7 +323,6 @@ class ShiftSerializer(serializers.ModelSerializer):
         
         # Prüfe ob Mitarbeiter eine Abwesenheit hat (außer Urlaubswunsch)
         if attrs.get('employee') and attrs.get('date'):
-            from .models import AbsenceRecord
             shift_date = attrs['date']
             
             # Prüfe auf Abwesenheiten für dieses Datum (Urlaubswunsch ausschließen)

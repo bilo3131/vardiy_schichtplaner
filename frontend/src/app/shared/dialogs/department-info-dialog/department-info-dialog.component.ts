@@ -28,8 +28,4 @@ export class DepartmentInfoDialogComponent {
   onEdit(): void {
     this.dialogRef.close({ action: 'edit', department: this.data.department });
   }
-
-  onClose(): void {
-    this.dialogRef.close();
-  }
 }

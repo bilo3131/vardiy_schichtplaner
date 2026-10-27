@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # ===========================================
-# PostgreSQL Setup Script für Schichtplan
+# PostgreSQL Setup Script für den Schichtplaner
 # ===========================================
-# Dieses Script erstellt die PostgreSQL Datenbank
-# und den Benutzer für die Production-Umgebung
-# 
+# Legt Datenbank und Benutzer für einen neuen Server an.
+# Nur bei der Ersteinrichtung nötig (siehe DEPLOYMENT.md).
+#
 # Ausführen auf dem Server als root/sudo:
 # sudo bash setup-postgres.sh
 # ===========================================
@@ -13,12 +13,12 @@
 set -e  # Script bei Fehler abbrechen
 
 echo "=========================================="
-echo "PostgreSQL Setup für Schichtplan"
+echo "PostgreSQL Setup für den Schichtplaner"
 echo "=========================================="
 echo ""
 
-# Variablen (passe diese an oder verwende .env Werte)
-DB_NAME="schichtplan_prod"
+# Variablen (entsprechen der aktuellen Server-Konfiguration)
+DB_NAME="schichtplan_db"
 DB_USER="schichtplan_user"
 DB_PASSWORD=""
 
@@ -91,17 +91,10 @@ if [ $? -eq 0 ]; then
     echo "  Host:     localhost"
     echo "  Port:     5432"
     echo ""
-    echo "Trage diese Werte in deine .env Datei ein:"
-    echo "  DB_NAME=$DB_NAME"
-    echo "  DB_USER=$DB_USER"
-    echo "  DB_PASSWORD=$DB_PASSWORD"
-    echo "  DB_HOST=localhost"
-    echo "  DB_PORT=5432"
-    echo ""
     echo "Nächste Schritte:"
-    echo "  1. Bearbeite backend/.env mit den Datenbank-Werten"
-    echo "  2. Führe Migrationen aus: python manage.py migrate --settings=schichtplan.settings_prod"
-    echo "  3. Erstelle Superuser: python manage.py createsuperuser --settings=schichtplan.settings_prod"
+    echo "  1. Datenbank-Werte in backend/schichtplan/settings.py bzw. backend/.env eintragen"
+    echo "  2. Migrationen ausführen: venv/bin/python manage.py migrate"
+    echo "  3. Superuser anlegen:     venv/bin/python manage.py createsuperuser"
     echo ""
 else
     echo ""

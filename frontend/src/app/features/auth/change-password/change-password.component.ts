@@ -7,9 +7,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../../core/services/auth.service';
-import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
+import { SnackbarService } from '../../../core/services/snackbar.service';
 
 @Component({
   selector: 'app-change-password',
@@ -22,8 +21,7 @@ import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    MatIconModule,
-    MatSnackBarModule
+    MatIconModule
   ],
   templateUrl: './change-password.component.html',
   styleUrls: ['./change-password.component.scss']
@@ -38,7 +36,7 @@ export class ChangePasswordComponent {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private snackBar: MatSnackBar,
+    private snackbar: SnackbarService,
     private router: Router
   ) {
     this.passwordForm = this.fb.group({
@@ -65,7 +63,7 @@ export class ChangePasswordComponent {
       
       this.authService.changePassword(this.passwordForm.value).subscribe({
         next: () => {
-          this.showSuccessMessage('Passwort erfolgreich geändert');
+          this.snackbar.success('Passwort erfolgreich geändert');
           setTimeout(() => {
             this.router.navigate(['/dashboard']);
           }, 1500);
@@ -73,7 +71,7 @@ export class ChangePasswordComponent {
         error: (error) => {
           this.loading = false;
           const message = this.extractErrorMessage(error);
-          this.showErrorMessage(message);
+          this.snackbar.error(message);
         }
       });
     }
@@ -90,19 +88,5 @@ export class ChangePasswordComponent {
       return error.error.detail;
     }
     return 'Fehler beim Ändern des Passworts';
-  }
-
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', {
-      duration: UI_CONSTANTS.SNACKBAR.DURATION,
-      panelClass: ['success-snackbar']
-    });
-  }
-
-  private showErrorMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', {
-      duration: UI_CONSTANTS.SNACKBAR.ERROR_DURATION,
-      panelClass: ['error-snackbar']
-    });
   }
 }

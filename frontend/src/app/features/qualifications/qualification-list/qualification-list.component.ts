@@ -4,17 +4,16 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subscription } from 'rxjs';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { DashboardFilterService } from '../../../core/services/dashboard-filter.service';
+import { SnackbarService } from '../../../core/services/snackbar.service';
 import { Qualification } from '../../../core/models';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner.component';
 import { QualificationDialogComponent } from '../../../shared/dialogs/qualification-dialog/qualification-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/dialogs/confirm-dialog/confirm-dialog.component';
 import { QualificationInfoDialogComponent } from '../../../shared/dialogs/qualification-info-dialog/qualification-info-dialog.component';
-import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
 
 @Component({
   selector: 'app-qualification-list',
@@ -25,7 +24,6 @@ import { UI_CONSTANTS } from '../../../core/constants/ui.constants';
     MatButtonModule,
     MatIconModule,
     MatTableModule,
-    MatSnackBarModule,
     MatDialogModule,
     LoadingSpinnerComponent
   ],
@@ -43,7 +41,7 @@ export class QualificationListComponent implements OnInit, OnDestroy {
   constructor(
     private employeeService: EmployeeService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar,
+    private snackbar: SnackbarService,
     private dashboardFilterService: DashboardFilterService
   ) {}
 
@@ -105,11 +103,11 @@ export class QualificationListComponent implements OnInit, OnDestroy {
     this.employeeService.createQualification(data).subscribe({
       next: () => {
         this.loadQualifications();
-        this.showSuccessMessage('Qualifikation erfolgreich erstellt');
+        this.snackbar.success('Qualifikation erfolgreich erstellt');
       },
       error: (error) => {
         const message = this.extractErrorMessage(error, 'Fehler beim Erstellen der Qualifikation');
-        this.showErrorMessage(message);
+        this.snackbar.error(message);
       }
     });
   }
@@ -118,11 +116,11 @@ export class QualificationListComponent implements OnInit, OnDestroy {
     this.employeeService.updateQualification(id, data).subscribe({
       next: () => {
         this.loadQualifications();
-        this.showSuccessMessage('Qualifikation erfolgreich aktualisiert');
+        this.snackbar.success('Qualifikation erfolgreich aktualisiert');
       },
       error: (error) => {
         const message = this.extractErrorMessage(error, 'Fehler beim Aktualisieren der Qualifikation');
-        this.showErrorMessage(message);
+        this.snackbar.error(message);
       }
     });
   }
@@ -140,11 +138,11 @@ export class QualificationListComponent implements OnInit, OnDestroy {
         this.employeeService.deleteQualification(id).subscribe({
           next: () => {
             this.loadQualifications();
-            this.showSuccessMessage('Qualifikation erfolgreich gelöscht');
+            this.snackbar.success('Qualifikation erfolgreich gelöscht');
           },
           error: (error) => {
             const message = this.extractErrorMessage(error, 'Fehler beim Löschen der Qualifikation');
-            this.showErrorMessage(message);
+            this.snackbar.error(message);
           }
         });
       }
@@ -166,20 +164,6 @@ export class QualificationListComponent implements OnInit, OnDestroy {
 
   closeInfoBox(): void {
     this.showInfoBox = false;
-  }
-
-  private showSuccessMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.DURATION, 
-      panelClass: ['success-snackbar'] 
-    });
-  }
-
-  private showErrorMessage(message: string): void {
-    this.snackBar.open(message, 'Schließen', { 
-      duration: UI_CONSTANTS.SNACKBAR.ERROR_DURATION, 
-      panelClass: ['error-snackbar'] 
-    });
   }
 
   private extractErrorMessage(error: any, defaultMessage: string): string {

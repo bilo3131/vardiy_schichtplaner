@@ -8,7 +8,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'schichtplan.settings')
 django.setup()
 
-from subscriptions.models import Subscription, EarlyAccessSettings, SubscriptionTier
+from subscriptions.models import Subscription, EarlyAccessSettings
 from django.utils import timezone
 
 def init_early_access():

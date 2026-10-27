@@ -6,7 +6,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { SubscriptionService, Subscription, SubscriptionLimits } from '../../core/services/subscription.service';
 import { SubscriptionStatusComponent } from './subscription-status.component';
 
@@ -21,7 +20,6 @@ import { SubscriptionStatusComponent } from './subscription-status.component';
     MatChipsModule,
     MatProgressBarModule,
     MatSnackBarModule,
-    MatDialogModule,
     SubscriptionStatusComponent
   ],
   templateUrl: './subscription-management.component.html',
@@ -33,8 +31,7 @@ export class SubscriptionManagementComponent implements OnInit {
 
   constructor(
     private subscriptionService: SubscriptionService,
-    private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {

@@ -123,10 +123,10 @@ export class VacationListComponent implements OnInit, OnDestroy {
     // Rollenbasierte Filterung
     if (user) {
       if (user.role === 'employee') {
-        // Mitarbeiter sehen nur ihre eigenen Antr\u00e4ge
+        // Mitarbeiter sehen nur ihre eigenen Anträge
         filtered = filtered.filter(v => v.employee === user.employee_profile?.id);
       } else if (user.role === 'team_leader' || user.role === 'group_leader') {
-        // Teamleiter/Gruppenleiter sehen nur Mitarbeiter-Antr\u00e4ge (nicht Admin, HR, Abteilungsleiter, andere TL/GL)
+        // Teamleiter/Gruppenleiter sehen nur Mitarbeiter-Anträge (nicht Admin, HR, Abteilungsleiter, andere TL/GL)
         filtered = filtered.filter(v => {
           const employeeRole = v.employee_role;
           return employeeRole === 'employee';
@@ -140,7 +140,7 @@ export class VacationListComponent implements OnInit, OnDestroy {
                  employeeRole === 'employee';
         });
       }
-      // Admin und HR sehen alle Antr\u00e4ge (keine weitere Filterung)
+      // Admin und HR sehen alle Anträge (keine weitere Filterung)
     }
     
     this.filteredVacationRequests = filtered;

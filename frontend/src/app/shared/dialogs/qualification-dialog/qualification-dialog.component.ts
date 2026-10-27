@@ -9,6 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { Qualification, Department } from '../../../core/models';
 import { DepartmentService } from '../../../core/services/department.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ADMIN_ROLES } from '../../../core/constants/roles.constants';
 
 @Component({
   selector: 'app-qualification-dialog',
@@ -39,7 +40,7 @@ export class QualificationDialogComponent implements OnInit {
   ) {
     // Prüfe ob Benutzer die Abteilung bearbeiten darf (nur Admin oder HR)
     const user = this.authService.currentUserValue;
-    this.canEditDepartment = ['admin', 'hr'].includes(user?.role || '');
+    this.canEditDepartment = !!user && ADMIN_ROLES.includes(user.role);
     
     // Für andere Rollen: Setze automatisch die Abteilung des Benutzers
     let defaultDepartment = data.qualification?.department || null;

@@ -1,12 +1,15 @@
+import random
+import string
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+from django.db.models import Q
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
-from django.db.models import Q, Count, Sum
-from django.utils import timezone
-from datetime import datetime, timedelta
-from collections import defaultdict
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
 from .models import (
     Department, Qualification, Employee, Availability, VacationRequest,
     ShiftType, Shift, ShiftSwapRequest, AbsenceRecord,
@@ -127,11 +130,10 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             return response
         
         # Check role permission
-        response = self._check_field_permission(
+        return self._check_field_permission(
             'role',
             'Nur Administratoren und Personalwesen dürfen Rollen zuweisen'
         )
-        return response
     
     def update(self, request, *args, **kwargs):
         """Update employee with permission checks"""
@@ -194,8 +196,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     
     def _generate_random_password(self, length=None):
         """Generate a random password"""
-        import random
-        import string
         if length is None:
             length = SystemDefaults.DEFAULT_PASSWORD_LENGTH
         return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -339,8 +339,7 @@ class VacationRequestViewSet(viewsets.ModelViewSet):
                 employee = user.employee_profile
                 serializer.save(employee=employee)
             except Employee.DoesNotExist:
-                from rest_framework.exceptions import ValidationError
-                raise ValidationError({"error": "Der Benutzer hat kein Mitarbeiter-Profil."})
+                raise ValidationError({"error": "Der Benutzer hat kein Mitarbeiter-Profil."}) from None
         else:
             # Admin/Manager können employee frei wählen
             serializer.save()
@@ -361,20 +360,18 @@ class VacationRequestViewSet(viewsets.ModelViewSet):
         # Vorgesetzte können alle Anträge bearbeiten
         is_supervisor = UserRoles.is_supervisor_or_above(user.role)
         
-        if not is_supervisor:
-            # Mitarbeiter können nur eigene pending-Anträge bearbeiten
-            if user.role == UserRoles.EMPLOYEE:
-                # Prüfe ob es der eigene Antrag ist
-                if vacation_request.employee.user != user:
-                    raise PermissionDenied("Sie können nur Ihre eigenen Urlaubsanträge bearbeiten.")
-                
-                # Prüfe ob der Antrag noch pending ist
-                if vacation_request.status != VacationRequestStatus.PENDING:
-                    raise PermissionDenied(ValidationMessages.MUST_BE_PENDING)
-                
-                # Mitarbeiter dürfen employee field nicht ändern
-                if 'employee' in serializer.validated_data:
-                    serializer.validated_data.pop('employee')
+        # Mitarbeiter können nur eigene pending-Anträge bearbeiten
+        if not is_supervisor and user.role == UserRoles.EMPLOYEE:
+            # Prüfe ob es der eigene Antrag ist
+            if vacation_request.employee.user != user:
+                raise PermissionDenied("Sie können nur Ihre eigenen Urlaubsanträge bearbeiten.")
+
+            # Prüfe ob der Antrag noch pending ist
+            if vacation_request.status != VacationRequestStatus.PENDING:
+                raise PermissionDenied(ValidationMessages.MUST_BE_PENDING)
+
+            # Mitarbeiter dürfen employee field nicht ändern
+            serializer.validated_data.pop('employee', None)
         
         # Speichere die Änderungen
         updated_vacation = serializer.save()
@@ -392,7 +389,8 @@ class VacationRequestViewSet(viewsets.ModelViewSet):
             # Erstelle neues AbsenceRecord mit aktualisierten Daten, wenn noch genehmigt
             if updated_vacation.status == VacationRequestStatus.APPROVED:
                 # Erstelle Notiz mit dem Namen der genehmigenden Person
-                approver_name = updated_vacation.approved_by.get_full_name() if updated_vacation.approved_by and updated_vacation.approved_by.get_full_name() else (updated_vacation.approved_by.username if updated_vacation.approved_by else 'Unbekannt')
+                approver = updated_vacation.approved_by
+                approver_name = (approver.get_full_name() or approver.username) if approver else 'Unbekannt'
                 AbsenceRecord.objects.create(
                     employee=updated_vacation.employee,
                     start_date=updated_vacation.start_date,
@@ -413,16 +411,15 @@ class VacationRequestViewSet(viewsets.ModelViewSet):
         # Vorgesetzte können alle Anträge löschen
         is_supervisor = UserRoles.is_supervisor_or_above(user.role)
         
-        if not is_supervisor:
-            # Mitarbeiter können nur eigene pending-Anträge löschen
-            if user.role == UserRoles.EMPLOYEE:
-                # Prüfe ob es der eigene Antrag ist
-                if instance.employee.user != user:
-                    raise PermissionDenied("Sie können nur Ihre eigenen Urlaubsanträge löschen.")
-                
-                # Prüfe ob der Antrag noch pending ist
-                if instance.status != VacationRequestStatus.PENDING:
-                    raise PermissionDenied(ValidationMessages.MUST_BE_PENDING)
+        # Mitarbeiter können nur eigene pending-Anträge löschen
+        if not is_supervisor and user.role == UserRoles.EMPLOYEE:
+            # Prüfe ob es der eigene Antrag ist
+            if instance.employee.user != user:
+                raise PermissionDenied("Sie können nur Ihre eigenen Urlaubsanträge löschen.")
+
+            # Prüfe ob der Antrag noch pending ist
+            if instance.status != VacationRequestStatus.PENDING:
+                raise PermissionDenied(ValidationMessages.MUST_BE_PENDING)
         
         # Wenn es ein genehmigter Urlaub ist, lösche auch das zugehörige AbsenceRecord
         if instance.status == VacationRequestStatus.APPROVED:
@@ -452,7 +449,7 @@ class VacationRequestViewSet(viewsets.ModelViewSet):
         
         # Automatisch AbsenceRecord erstellen für genehmigte Urlaubsanträge
         # Erstelle Notiz mit dem Namen der genehmigenden Person
-        approver_name = request.user.get_full_name() if request.user.get_full_name() else request.user.username
+        approver_name = request.user.get_full_name() or request.user.username
         AbsenceRecord.objects.get_or_create(
             employee=vacation_request.employee,
             start_date=vacation_request.start_date,
@@ -590,7 +587,6 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # Wenn die gelöschte Schicht published war, setze alle anderen Schichten der Woche auf draft
         if was_published:
             # Finde Start und Ende der Woche
-            from datetime import timedelta
             week_start = shift_date - timedelta(days=shift_date.weekday())
             week_end = week_start + timedelta(days=6)
             
@@ -767,7 +763,6 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 3. Gelöschte Schichten
         for employee_id, deleted_list in deleted_shifts.items():
             try:
-                from .models import Employee
                 employee = Employee.objects.get(id=employee_id)
                 Notification.objects.create(
                     user=employee.user,
